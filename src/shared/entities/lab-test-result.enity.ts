@@ -4,7 +4,7 @@ import { Staff } from './staff.entity';
 import { Patient } from './patient.entity';
 
 @Entity()
-export class ImageResult {
+export class LabTestResult {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 

@@ -1,62 +1,31 @@
-// src/shared/entities/medical-service.entity.ts
-import {
-  Entity,
-  PrimaryColumn,
-  Column,
-  ManyToOne,
-  OneToMany,
-  JoinColumn,
-  CreateDateColumn,
-  UpdateDateColumn,
-  Index,
-} from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany } from 'typeorm';
 import { Room } from './room.entity';
 import { ServiceIndication } from './service-indication.entity';
 
 export enum ServiceType {
-  EXAMINATION = 'EXAMINATION', // khám bệnh
-  TEST = 'TEST',               // xét nghiệm
-  IMAGING = 'IMAGING',         // chẩn đoán hình ảnh
-  OTHER = 'OTHER',             // khác
+  EXAMINATION = 'EXAMINATION',
+  TEST = 'TEST',
+  IMAGING = 'IMAGING',
+  OTHER = 'OTHER',
 }
 
-@Entity({ name: 'medical_service' })
-@Index(['service_type'])
+@Entity()
 export class MedicalService {
-  @PrimaryColumn({ type: 'char', length: 36 })
+  @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ length: 255 })
-  service_name: string;
+  @Column()
+  serviceName: string;
 
-  @Column({ type: 'enum', enum: ServiceType })
-  service_type: ServiceType;
+  @Column({ type: 'enum', enum: ServiceType, default: ServiceType.EXAMINATION })
+  serviceType: ServiceType;
 
   @Column({ type: 'decimal', precision: 12, scale: 2 })
-  service_price: number;
-
-  @Column({ length: 255, nullable: true })
-  unit?: string;
-
-  @Column({ length: 255, nullable: true })
-  category?: string;
-
-  @Column({ type: 'text', nullable: true })
-  description?: string;
-
-  @Column({ type: 'char', length: 36, nullable: true })
-  room_id?: string;
+  servicePrice: number;
 
   @ManyToOne(() => Room, (r) => r.services)
-  @JoinColumn({ name: 'room_id' })
-  room?: Room;
+  room: Room;
 
-  @OneToMany(() => ServiceIndication, (si) => si.service)
+  @OneToMany(() => ServiceIndication, (s) => s.service)
   indications: ServiceIndication[];
-
-  @CreateDateColumn({ type: 'datetime' })
-  created_at: Date;
-
-  @UpdateDateColumn({ type: 'datetime' })
-  updated_at: Date;
 }

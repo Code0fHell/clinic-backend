@@ -1,44 +1,46 @@
-// src/shared/entities/patient.entity.ts
-import {
-  Entity, PrimaryColumn, Column, ManyToOne, OneToMany, JoinColumn
-} from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, OneToOne, JoinColumn, OneToMany } from 'typeorm';
 import { User } from './user.entity';
-import { Appointment } from './appointment.entity';
 import { Visit } from './visit.entity';
-import { IndicationTicket } from './indication-ticket.entity';
-import { Bill } from './bill.entity';
 import { MedicalRecord } from './medical-record.entity';
-
-@Entity({ name: 'patient' })
+@Entity()
 export class Patient {
-  @PrimaryColumn({ type: 'char', length: 36 })
+  @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'char', length: 36, nullable: true })
-  user_id?: string;
+  @OneToOne(() => User, user => user.patient, { cascade: true })
+  @JoinColumn()
+  user: User;
 
-  @ManyToOne(() => User, (u) => u.patient)
-  @JoinColumn({ name: 'user_id' })
-  user?: User;
+  @Column({ nullable: true })
+  fatherName: string;
 
-  @Column({ type: 'int', nullable: true })
-  age?: number;
+  @Column({ nullable: true })
+  motherName: string;
 
-  @Column({ length: 100, nullable: true })
-  nationality?: string;
+  @Column({ nullable: true })
+  fatherPhone: string;
 
-  @OneToMany(() => Appointment, (a) => a.patient)
-  appointments: Appointment[];
+  @Column({ nullable: true })
+  motherPhone: string;
 
-  @OneToMany(() => Visit, (v) => v.patient)
+  @Column({ type: 'float', nullable: true })
+  height: number;
+
+  @Column({ type: 'float', nullable: true })
+  weight: number;
+
+  @Column({ nullable: true })
+  bloodType: string;
+
+  @Column({ nullable: true })
+  respiratoryRate: string;
+
+  @Column({ type: 'text', nullable: true })
+  medicalHistory: string;
+
+  @OneToMany(() => Visit, v => v.patient)
   visits: Visit[];
 
-  @OneToMany(() => IndicationTicket, (i) => i.patient)
-  indicationTickets: IndicationTicket[];
-
-  @OneToMany(() => Bill, (b) => b.patient)
-  bills: Bill[];
-
-  @OneToMany(() => MedicalRecord, (m) => m.patient)
+  @OneToMany(() => MedicalRecord, (mr) => mr.patient)
   medicalRecords: MedicalRecord[];
 }

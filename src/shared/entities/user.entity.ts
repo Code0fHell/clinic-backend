@@ -1,82 +1,53 @@
-import {
-  Entity,
-  PrimaryColumn,
-  Column,
-  CreateDateColumn,
-  UpdateDateColumn,
-  OneToOne, OneToMany, Index
-} from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, OneToOne, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 import { Staff } from './staff.entity';
 import { Patient } from './patient.entity';
-import { Payment } from './payment.entity';
-import { FormTemplate } from './form-template.entity';
+import { UserRole } from '../enums/user-role.enum';
+import { Gender } from '../enums/gender.enum';
 
-export enum Gender {
-  NAM = 'NAM',
-  NU = 'NU',
-  KHAC = 'KHAC'
-}
-
-export enum UserRole {
-  PATIENT = 'PATIENT',
-  DOCTOR_CLINICAL = 'DOCTOR_CLINICAL',
-  DOCTOR_DIAGNOSTIC = 'DOCTOR_DIAGNOSTIC',
-  DOCTOR_LAB = 'DOCTOR_LAB',
-  PHARMACIST = 'PHARMACIST',
-  RECEPTIONIST = 'RECEPTIONIST',
-  OWNER = 'OWNER',
-  ADMIN = 'ADMIN'
-}
-
-@Entity({ name: 'users' })
-@Index(['username'], { unique: true })
-@Index(['user_role'])
+@Entity()
 export class User {
-  @PrimaryColumn({ type: 'char', length: 36 })
+  @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ length: 100 })
+  @Column({ unique: true })
   username: string;
 
-  @Column({ length: 255 })
+  @Column()
   password: string;
 
-  @Column({ length: 200, nullable: true })
-  email?: string;
+  @Column({ unique: true })
+  email: string;
 
-  @Column({ length: 200, nullable: true })
-  fullName?: string;
+  @Column({ nullable: true })
+  fullName: string;
 
   @Column({ type: 'date', nullable: true })
-  date_of_birth?: Date;
+  dateOfBirth: Date;
 
   @Column({ type: 'enum', enum: Gender, nullable: true })
-  gender?: Gender;
+  gender: Gender;
 
-  @Column({ length: 500, nullable: true })
-  avatar_url?: string;
+  @Column({ nullable: true })
+  avatar: string;
 
-  @Column({ default: true })
-  is_active: boolean;
+  @Column({ type: 'text', nullable: true })
+  address: string;
 
-  @CreateDateColumn({ type: 'datetime' })
-  created_at: Date;
+  @Column({ nullable: true })
+  phone: string;
 
-  @UpdateDateColumn({ type: 'datetime' })
-  updated_at: Date;
+  @Column({ type: 'enum', enum: UserRole })
+  userRole: UserRole;
 
-  @Column({ type: 'enum', enum: UserRole, default: UserRole.PATIENT })
-  user_role: UserRole;
+  @CreateDateColumn()
+  createdAt: Date;
 
-  @OneToOne(() => Staff, (staff) => staff.user)
-  staff?: Staff;
+  @UpdateDateColumn()
+  updatedAt: Date;
 
-  @OneToOne(() => Patient, (p) => p.user)
-  patient?: Patient;
+  @OneToOne(() => Staff, staff => staff.user)
+  staff: Staff;
 
-  @OneToMany(() => Payment, (p) => p.paid_by_user)
-  payments: Payment[];
-
-  @OneToMany(() => FormTemplate, (t) => t.owner)
-  templates: FormTemplate[];
+  @OneToOne(() => Patient, patient => patient.user)
+  patient: Patient;
 }

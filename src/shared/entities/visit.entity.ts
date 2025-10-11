@@ -1,68 +1,39 @@
-// src/shared/entities/visit.entity.ts
-import {
-  Entity, PrimaryColumn, Column, ManyToOne, OneToOne, JoinColumn, Index
-} from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from 'typeorm';
 import { Patient } from './patient.entity';
-import { Appointment } from './appointment.entity';
-import { User } from './user.entity';
-import { MedicalTicket } from './medical-ticket.entity';
+import { Staff } from './staff.entity';
+import { VisitType } from '../enums/visit-type.enum';
+import { VisitStatus } from '../enums/visit-status.enum';
+import { MedicalRecord } from './medical-record.entity';
 
-export enum VisitType {
-  WALK_IN = 'WALK_IN',
-  APPOINTMENT = 'APPOINTMENT',
-}
-
-export enum VisitStatus {
-  CHECKED_IN = 'CHECKED_IN',
-  COMPLETED = 'COMPLETED',
-  CANCELLED = 'CANCELLED',
-}
-
-@Entity({ name: 'visit' })
-@Index(['patient_id'])
+@Entity()
 export class Visit {
-  @PrimaryColumn({ type: 'char', length: 36 })
+  @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'char', length: 36 })
-  patient_id: string;
-
-  @ManyToOne(() => Patient, (p) => p.visits)
-  @JoinColumn({ name: 'patient_id' })
+  @ManyToOne(() => Patient)
   patient: Patient;
 
-  @Column({ type: 'char', length: 36, nullable: true })
-  appointment_id?: string;
-
-  @OneToOne(() => Appointment, (a) => a.visit)
-  @JoinColumn({ name: 'appointment_id' })
-  appointment?: Appointment;
+  @ManyToOne(() => Staff)
+  doctor: Staff;
 
   @Column({ type: 'enum', enum: VisitType })
-  visit_type: VisitType;
+  visitType: VisitType;
 
-  @Column({ type: 'int', nullable: true })
-  queue_number?: number;
+  @Column({ nullable: true })
+  queueNumber: number;
 
-  @Column({ type: 'char', length: 36, nullable: true })
-  created_by?: string;
-
-  @ManyToOne(() => User)
-  @JoinColumn({ name: 'created_by' })
-  creator?: User;
-
-  @Column({ type: 'datetime', default: () => 'CURRENT_TIMESTAMP' })
-  created_at: Date;
+  @Column({ type: 'enum', enum: VisitStatus })
+  visitStatus: VisitStatus;
 
   @Column({ type: 'datetime', nullable: true })
-  checked_in_at?: Date;
+  checkedInAt: Date;
 
   @Column({ type: 'datetime', nullable: true })
-  completed_at?: Date;
+  completedAt: Date;
 
-  @Column({ type: 'enum', enum: VisitStatus, default: VisitStatus.CHECKED_IN })
-  visit_status: VisitStatus;
-
-  @OneToOne(() => MedicalTicket, (m) => m.visit)
-  medicalTicket?: MedicalTicket;
+  @ManyToOne(() => MedicalRecord, (mr) => mr.visits, {
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
+  medicalRecord?: MedicalRecord | null;
 }

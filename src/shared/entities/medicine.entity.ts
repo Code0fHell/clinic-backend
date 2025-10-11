@@ -1,37 +1,32 @@
-// src/shared/entities/medicine.entity.ts
-import {
-  Entity, PrimaryColumn, Column, CreateDateColumn, UpdateDateColumn
-} from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, OneToMany } from 'typeorm';
+import { PrescriptionDetail } from './prescription-detail.entity';
 
-@Entity({ name: 'medicine' })
+@Entity()
 export class Medicine {
-  @PrimaryColumn({ type: 'char', length: 36 })
+  @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ length: 255 })
+  @Column()
   name: string;
-
-  @Column({ length: 100, nullable: true })
-  unit?: string;
 
   @Column({ type: 'decimal', precision: 12, scale: 2 })
   price: number;
 
+  @Column({ nullable: true })
+  category: string;
+
+  @Column({ nullable: true })
+  unit: string;
+
   @Column({ type: 'int', default: 0 })
   stock: number;
 
-  @Column({ length: 255, nullable: true })
-  manufacturer?: string;
+  @Column({ nullable: true })
+  manufacturer: string;
 
-  @Column({ length: 100, nullable: true })
-  category?: string;
+  @Column({ type: 'date', nullable: true })
+  expiryDate: Date;
 
-  @Column({ type: 'text', nullable: true })
-  description?: string;
-
-  @CreateDateColumn({ type: 'datetime' })
-  created_at: Date;
-
-  @UpdateDateColumn({ type: 'datetime' })
-  updated_at: Date;
+  @OneToMany(() => PrescriptionDetail, (d) => d.medicine)
+  details: PrescriptionDetail[];
 }

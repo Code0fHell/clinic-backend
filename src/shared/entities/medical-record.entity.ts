@@ -1,45 +1,40 @@
-// src/shared/entities/medical-record.entity.ts
 import {
-  Entity, PrimaryColumn, Column, ManyToOne, JoinColumn, OneToMany, CreateDateColumn
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  OneToMany,
+  CreateDateColumn,
+  UpdateDateColumn,
 } from 'typeorm';
 import { Patient } from './patient.entity';
 import { Staff } from './staff.entity';
+import { Visit } from './visit.entity';
 import { Prescription } from './prescription.entity';
 
 @Entity({ name: 'medical_record' })
 export class MedicalRecord {
-  @PrimaryColumn({ type: 'char', length: 36 })
+  @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'char', length: 36 })
-  patient_id: string;
-
-  @ManyToOne(() => Patient, (p) => p.medicalRecords)
-  @JoinColumn({ name: 'patient_id' })
+  @ManyToOne(() => Patient, (p) => p.medicalRecords, { nullable: false, onDelete: 'CASCADE' })
   patient: Patient;
 
-  @Column({ type: 'char', length: 36, nullable: true })
-  doctor_id?: string;
-
-  @ManyToOne(() => Staff)
-  @JoinColumn({ name: 'doctor_id' })
-  doctor?: Staff;
-
-  @Column({ length: 255, nullable: true })
-  diagnosis?: string;
+  @ManyToOne(() => Staff, (s) => s.medicalRecords, { nullable: true, onDelete: 'SET NULL' })
+  doctor?: Staff | null;
 
   @Column({ type: 'text', nullable: true })
-  symptoms?: string;
+  history?: string | null;
 
-  @Column({ type: 'text', nullable: true })
-  treatment_plan?: string;
+  @OneToMany(() => Visit, (v) => v.medicalRecord)
+  visits: Visit[];
 
-  @Column({ type: 'text', nullable: true })
-  note?: string;
-
-  @CreateDateColumn({ type: 'datetime' })
-  created_at: Date;
-
-  @OneToMany(() => Prescription, (p) => p.medicalRecord)
+  @OneToMany(() => Prescription, (pres) => pres.medicalRecord)
   prescriptions: Prescription[];
+
+  @CreateDateColumn({ name: 'created_at' })
+  createdAt: Date;
+
+  @UpdateDateColumn({ name: 'updated_at' })
+  updatedAt: Date;
 }

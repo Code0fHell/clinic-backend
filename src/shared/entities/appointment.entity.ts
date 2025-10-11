@@ -1,58 +1,26 @@
-// src/shared/entities/appointment.entity.ts
-import {
-  Entity, PrimaryColumn, Column, ManyToOne, JoinColumn, OneToOne, Index
-} from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from 'typeorm';
 import { Staff } from './staff.entity';
 import { Patient } from './patient.entity';
-import { WorkScheduleDetail } from './work-schedule-detail.entity';
-import { Visit } from './visit.entity';
+import { Session } from '../enums/session.enum';
+import { AppointmentStatus } from '../enums/appointment-status.enum';
 
-export enum AppointmentStatus {
-  CANCELLED = 'CANCELLED',
-  CHECKED_IN = 'CHECKED_IN',
-  COMPLETED = 'COMPLETED',
-}
-
-@Entity({ name: 'appointment' })
-@Index(['doctor_id'])
-@Index(['patient_id'])
+@Entity()
 export class Appointment {
-  @PrimaryColumn({ type: 'char', length: 36 })
+  @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'char', length: 36, nullable: true })
-  doctor_id?: string;
+  @ManyToOne(() => Staff)
+  doctor: Staff;
 
-  @ManyToOne(() => Staff, (s) => s.appointments)
-  @JoinColumn({ name: 'doctor_id' })
-  doctor?: Staff;
+  @ManyToOne(() => Patient)
+  patient: Patient;
 
-  @Column({ type: 'char', length: 36, nullable: true })
-  patient_id?: string;
+  @Column({ type: 'datetime' })
+  appointmentDate: Date;
 
-  @ManyToOne(() => Patient, (p) => p.appointments)
-  @JoinColumn({ name: 'patient_id' })
-  patient?: Patient;
+  @Column({ type: 'enum', enum: Session })
+  session: Session;
 
-  @Column({ type: 'enum', enum: ['MORNING', 'AFTERNOON'], nullable: true })
-  session?: 'MORNING' | 'AFTERNOON';
-
-  @Column({ type: 'datetime', nullable: true })
-  appointment_date?: Date;
-
-  @Column({ type: 'text', nullable: true })
-  reason?: string;
-
-  @Column({ type: 'enum', enum: AppointmentStatus, default: AppointmentStatus.CHECKED_IN })
+  @Column({ type: 'enum', enum: AppointmentStatus })
   status: AppointmentStatus;
-
-  @Column({ type: 'char', length: 36, nullable: true })
-  work_schedule_detail_id?: string;
-
-  @OneToOne(() => WorkScheduleDetail, (d) => d.appointment)
-  @JoinColumn({ name: 'work_schedule_detail_id' })
-  slot?: WorkScheduleDetail;
-
-  @OneToOne(() => Visit, (v) => v.appointment)
-  visit?: Visit;
 }
