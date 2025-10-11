@@ -1,0 +1,5 @@
+export enum VisitStatus {
+  CHECKED_IN = 'CHECKED_IN',
+  COMPLETED = 'COMPLETED',
+  CANCELLED = 'CANCELLED',
+}
