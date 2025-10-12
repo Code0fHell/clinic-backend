@@ -1,6 +1,9 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { AuthModule } from './api/auth/auth.module';
+import { StaffModule } from './api/staff/staff.module';
+import { UserModule } from './api/user/user.module';
 
 @Module({
   imports: [
@@ -25,6 +28,9 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
         },
       }),
     }),
+    AuthModule,
+    StaffModule,
+    UserModule,
   ],
   controllers: [],
   providers: [],
