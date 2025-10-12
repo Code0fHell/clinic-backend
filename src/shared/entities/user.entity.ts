@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, OneToOne, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, OneToOne, } from 'typeorm';
 import { Staff } from './staff.entity';
 import { Patient } from './patient.entity';
 import { UserRole } from '../enums/user-role.enum';
@@ -19,10 +19,10 @@ export class User {
   email: string;
 
   @Column({ nullable: true })
-  fullName: string;
+  full_name: string;
 
   @Column({ type: 'date', nullable: true })
-  dateOfBirth: Date;
+  date_of_birth: Date;
 
   @Column({ type: 'enum', enum: Gender, nullable: true })
   gender: Gender;
@@ -37,13 +37,13 @@ export class User {
   phone: string;
 
   @Column({ type: 'enum', enum: UserRole })
-  userRole: UserRole;
+  user_role: UserRole;
 
-  @CreateDateColumn()
-  createdAt: Date;
+  @Column({type: 'date', default: () => 'CURRENT_TIMESTAMP'})
+  created_at: Date;
 
-  @UpdateDateColumn()
-  updatedAt: Date;
+  @Column({type: 'date', default: () => 'CURRENT_TIMESTAMP', onUpdate: 'CURRENT_TIMESTAMP'})
+  updated_at: Date;
 
   @OneToOne(() => Staff, staff => staff.user)
   staff: Staff;

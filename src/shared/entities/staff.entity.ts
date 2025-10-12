@@ -20,13 +20,13 @@ export class Staff {
   position: string;
 
   @Column({ nullable: true })
-  licenseNumber: string;
+  license_number: string;
 
   @Column({ type: 'enum', enum: DoctorType, nullable: true })
-  doctorType: DoctorType;
+  doctor_type: DoctorType;
 
   @Column({ default: true })
-  isAvailable: boolean;
+  is_available: boolean;
 
   @OneToMany(() => WorkSchedule, ws => ws.staff)
   schedules: WorkSchedule[];

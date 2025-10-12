@@ -10,26 +10,29 @@ export class IndicationTicket {
   id: string;
 
   @ManyToOne(() => MedicalTicket, (m) => m.indications)
-  medicalTicket: MedicalTicket;
+  medical_ticket_id: MedicalTicket;
 
   @ManyToOne(() => Staff)
-  doctor: Staff;
+  doctor_id: Staff;
 
   @ManyToOne(() => Patient)
-  patient: Patient;
+  patient_id: Patient;
 
   @Column({ type: 'text', nullable: true })
   diagnosis: string;
 
   @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
-  totalFee: number;
+  total_fee: number;
 
   @Column({ type: 'datetime', default: () => 'CURRENT_TIMESTAMP' })
-  indicationDate: Date;
+  indication_date: Date;
 
   @Column({ unique: true, nullable: true })
   barcode: string;
 
   @OneToMany(() => ServiceIndication, (s) => s.indication)
   serviceItems: ServiceIndication[];
+
+  @ManyToOne(() => MedicalTicket, (m) => m.indications)
+  medicalTicket: MedicalTicket;
 }

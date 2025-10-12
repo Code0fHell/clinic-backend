@@ -4,7 +4,6 @@ import {
   Column,
   ManyToOne,
   OneToMany,
-  CreateDateColumn,
 } from 'typeorm';
 import { Patient } from './patient.entity';
 import { Staff } from './staff.entity';
@@ -25,7 +24,7 @@ export class Prescription {
   @Column({ type: 'text', nullable: true })
   conclusion: string;
 
-  @CreateDateColumn()
+  @Column({type: 'date', default: () => 'CURRENT_TIMESTAMP'})
   createdAt: Date;
 
   @OneToMany(() => PrescriptionDetail, (d) => d.prescription)

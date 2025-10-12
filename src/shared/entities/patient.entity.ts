@@ -12,16 +12,16 @@ export class Patient {
   user: User;
 
   @Column({ nullable: true })
-  fatherName: string;
+  father_name: string;
 
   @Column({ nullable: true })
-  motherName: string;
+  mother_name: string;
 
   @Column({ nullable: true })
-  fatherPhone: string;
+  father_phone: string;
 
   @Column({ nullable: true })
-  motherPhone: string;
+  mother_phone: string;
 
   @Column({ type: 'float', nullable: true })
   height: number;
@@ -30,13 +30,13 @@ export class Patient {
   weight: number;
 
   @Column({ nullable: true })
-  bloodType: string;
+  blood_type: string;
 
   @Column({ nullable: true })
-  respiratoryRate: string;
+  respiratory_rate: string;
 
   @Column({ type: 'text', nullable: true })
-  medicalHistory: string;
+  medical_history: string;
 
   @OneToMany(() => Visit, v => v.patient)
   visits: Visit[];

@@ -25,7 +25,7 @@ export class Medicine {
   manufacturer: string;
 
   @Column({ type: 'date', nullable: true })
-  expiryDate: Date;
+  expiry_date: Date;
 
   @OneToMany(() => PrescriptionDetail, (d) => d.medicine)
   details: PrescriptionDetail[];

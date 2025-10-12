@@ -11,7 +11,7 @@ export class ServiceIndication {
   indication: IndicationTicket;
 
   @ManyToOne(() => MedicalService, (m) => m.indications)
-  service: MedicalService;
+  medical_service: MedicalService;
 
   @Column({ type: 'int', default: 1 })
   quantity: number;

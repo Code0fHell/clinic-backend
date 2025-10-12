@@ -1,13 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany } from 'typeorm';
 import { Room } from './room.entity';
 import { ServiceIndication } from './service-indication.entity';
-
-export enum ServiceType {
-  EXAMINATION = 'EXAMINATION',
-  TEST = 'TEST',
-  IMAGING = 'IMAGING',
-  OTHER = 'OTHER',
-}
+import { ServiceType } from '../enums/service-type.enum';
 
 @Entity()
 export class MedicalService {
@@ -15,17 +9,17 @@ export class MedicalService {
   id: string;
 
   @Column()
-  serviceName: string;
+  service_name: string;
 
   @Column({ type: 'enum', enum: ServiceType, default: ServiceType.EXAMINATION })
-  serviceType: ServiceType;
+  service_type: ServiceType;
 
   @Column({ type: 'decimal', precision: 12, scale: 2 })
-  servicePrice: number;
+  service_price: number;
 
   @ManyToOne(() => Room, (r) => r.services)
   room: Room;
 
-  @OneToMany(() => ServiceIndication, (s) => s.service)
+  @OneToMany(() => ServiceIndication, (s) => s.medical_service)
   indications: ServiceIndication[];
 }

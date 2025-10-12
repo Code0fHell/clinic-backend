@@ -11,17 +11,14 @@ export class WorkSchedule {
   staff: Staff;
 
   @Column({ type: 'date' })
-  workDate: Date;
+  work_date: Date;
 
   @Column({ type: 'datetime', nullable: true })
-  startTime: Date;
+  start_time: Date;
 
   @Column({ type: 'datetime', nullable: true })
-  endTime: Date;
-
-  @Column({ type: 'text', nullable: true })
-  details: string;
+  end_time: Date;
 
   @OneToMany(() => WorkScheduleDetail, d => d.schedule)
-  detailsList: WorkScheduleDetail[];
+  details: WorkScheduleDetail[];
 }

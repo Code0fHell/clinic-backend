@@ -4,8 +4,6 @@ import {
   Column,
   ManyToOne,
   OneToMany,
-  CreateDateColumn,
-  UpdateDateColumn,
 } from 'typeorm';
 import { Patient } from './patient.entity';
 import { Staff } from './staff.entity';
@@ -32,9 +30,9 @@ export class MedicalRecord {
   @OneToMany(() => Prescription, (pres) => pres.medicalRecord)
   prescriptions: Prescription[];
 
-  @CreateDateColumn({ name: 'created_at' })
-  createdAt: Date;
+  @Column({ type: 'datetime', default: () => 'CURRENT_TIMESTAMP' })
+  created_at: Date;
 
-  @UpdateDateColumn({ name: 'updated_at' })
+  @Column({ type: 'datetime', default: () => 'CURRENT_TIMESTAMP', onUpdate: 'CURRENT_TIMESTAMP' })  
   updatedAt: Date;
 }

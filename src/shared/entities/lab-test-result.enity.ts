@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from 'typeorm';
 import { IndicationTicket } from './indication-ticket.entity';
 import { Staff } from './staff.entity';
 import { Patient } from './patient.entity';
@@ -26,6 +26,6 @@ export class LabTestResult {
   @Column({ type: 'text', nullable: true })
   conclusion: string;
 
-  @CreateDateColumn()
-  createdAt: Date;
+  @Column({type: 'date', default: () => 'CURRENT_TIMESTAMP'})
+  created_at: Date;
 }

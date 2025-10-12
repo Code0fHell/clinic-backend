@@ -17,19 +17,19 @@ export class Visit {
   doctor: Staff;
 
   @Column({ type: 'enum', enum: VisitType })
-  visitType: VisitType;
+  visit_type: VisitType;
 
   @Column({ nullable: true })
-  queueNumber: number;
+  queue_number: number;
 
   @Column({ type: 'enum', enum: VisitStatus })
-  visitStatus: VisitStatus;
+  visit_status: VisitStatus;
 
   @Column({ type: 'datetime', nullable: true })
-  checkedInAt: Date;
+  checked_in_at: Date;
 
   @Column({ type: 'datetime', nullable: true })
-  completedAt: Date;
+  completed_at: Date;
 
   @ManyToOne(() => MedicalRecord, (mr) => mr.visits, {
     nullable: true,

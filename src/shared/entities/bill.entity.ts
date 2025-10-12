@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany } from 'typeorm';
 import { Patient } from './patient.entity';
 import { Staff } from './staff.entity';
 import { Prescription } from './prescription.entity';
@@ -15,21 +15,21 @@ export class Bill {
   total: number;
 
   @Column({ type: 'enum', enum: BillType })
-  billType: BillType;
+  bill_type: BillType;
 
   @ManyToOne(() => Patient)
-  patient: Patient;
+  patient_id: Patient;
 
   @ManyToOne(() => Staff)
-  doctor: Staff;
+  doctor_id: Staff;
 
   @ManyToOne(() => Prescription, { nullable: true })
-  prescription: Prescription;
+  prescription_id: Prescription;
 
   @ManyToOne(() => MedicalTicket, { nullable: true })
-  medicalTicket: MedicalTicket;
+  medicalTicket_id: MedicalTicket;
 
-  @CreateDateColumn()
+  @Column({type: 'date', default: () => 'CURRENT_TIMESTAMP'})
   createdAt: Date;
 
   @OneToMany(() => Payment, (p) => p.bill)
