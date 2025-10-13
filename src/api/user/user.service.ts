@@ -23,6 +23,11 @@ export class UserService {
     return this.userRepository.save(user);
   }
 
+  async updateProfile(id: string, dto: Partial<User>) {
+    await this.userRepository.update(id, dto);
+    return this.findById(id);
+  }
+
   async findById(id: string) {
     return this.userRepository.findOne({ where: { id } });
   }
