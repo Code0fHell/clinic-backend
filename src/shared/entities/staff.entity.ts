@@ -10,7 +10,7 @@ export class Staff {
   id: string;
 
   @OneToOne(() => User, user => user.staff, { cascade: true })
-  @JoinColumn()
+  @JoinColumn({ name: 'user_id'})
   user: User;
 
   @Column({ nullable: true })
