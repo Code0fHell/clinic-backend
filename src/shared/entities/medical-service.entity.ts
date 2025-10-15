@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, JoinColumn } from 'typeorm';
 import { Room } from './room.entity';
 import { ServiceIndication } from './service-indication.entity';
 import { ServiceType } from '../enums/service-type.enum';
@@ -18,6 +18,7 @@ export class MedicalService {
   service_price: number;
 
   @ManyToOne(() => Room, (r) => r.services)
+  @JoinColumn( { name: 'room_id'})
   room: Room;
 
   @OneToMany(() => ServiceIndication, (s) => s.medical_service)
