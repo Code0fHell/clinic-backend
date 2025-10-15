@@ -8,12 +8,18 @@ import { UserService } from '../user/user.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import * as bcrypt from 'bcrypt';
+import { UserRole } from 'src/shared/enums/user-role.enum';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Patient } from 'src/shared/entities/patient.entity';
 
 @Injectable()
 export class AuthService {
   constructor(
     private readonly userService: UserService,
     private readonly jwtService: JwtService,
+    @InjectRepository(Patient)
+    private readonly patientRepository: Repository<Patient>,
   ) {}
 
   // Đăng ký người dùng mới
@@ -30,6 +36,13 @@ export class AuthService {
       ...registerDto,
       password: hashedPassword,
     });
+
+    if(registerDto.user_role == UserRole.PATIENT) {
+      const patient = this.patientRepository.create({
+        user,
+      });
+      await this.patientRepository.save(patient);
+    }
 
     return { message: 'Registration successful', userId: user.id };
   }
