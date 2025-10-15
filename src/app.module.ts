@@ -6,6 +6,8 @@ import { StaffModule } from './api/staff/staff.module';
 import { UserModule } from './api/user/user.module';
 import { AppointmentModule } from './api/appointment/appointment.module';
 import { WorkScheduleModule } from './api/work-schedule/work-schedule.module';
+import { RoomModule } from './api/room/room.module';
+import { MedicalServiceModule } from './api/medical-service/medical-service.module';
 
 @Module({
   imports: [
@@ -34,7 +36,9 @@ import { WorkScheduleModule } from './api/work-schedule/work-schedule.module';
     StaffModule,
     UserModule,
     AppointmentModule,
-    WorkScheduleModule
+    WorkScheduleModule,
+    RoomModule,
+    MedicalServiceModule,
   ],
   controllers: [],
   providers: [],
