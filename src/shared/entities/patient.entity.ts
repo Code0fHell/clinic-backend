@@ -7,8 +7,8 @@ export class Patient {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @OneToOne(() => User, user => user.patient, { cascade: true })
-  @JoinColumn()
+  @OneToOne(() => User, user => user.patient)
+  @JoinColumn({ name: 'user_id' })
   user: User;
 
   @Column({ nullable: true })

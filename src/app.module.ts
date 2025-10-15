@@ -4,6 +4,8 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthModule } from './api/auth/auth.module';
 import { StaffModule } from './api/staff/staff.module';
 import { UserModule } from './api/user/user.module';
+import { AppointmentModule } from './api/appointment/appointment.module';
+import { WorkScheduleModule } from './api/work-schedule/work-schedule.module';
 
 @Module({
   imports: [
@@ -31,6 +33,8 @@ import { UserModule } from './api/user/user.module';
     AuthModule,
     StaffModule,
     UserModule,
+    AppointmentModule,
+    WorkScheduleModule
   ],
   controllers: [],
   providers: [],

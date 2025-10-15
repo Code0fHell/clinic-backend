@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
 import { Staff } from './staff.entity';
 import { Patient } from './patient.entity';
 import { Session } from '../enums/session.enum';
@@ -11,13 +11,16 @@ export class Appointment {
   id: string;
 
   @ManyToOne(() => Staff)
+  @JoinColumn( { name: 'doctor_id'})
   doctor: Staff;
 
   @ManyToOne(() => Patient)
+  @JoinColumn( { name: 'patient_id'})
   patient: Patient;
 
   @ManyToOne(() => WorkScheduleDetail)
-  schedule_detail_id: WorkScheduleDetail;
+  @JoinColumn( { name: 'schedule_detail_id'})
+  schedule_detail: WorkScheduleDetail;
 
   @Column({ type: 'datetime' })
   appointment_date: Date;
