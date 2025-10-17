@@ -7,6 +7,11 @@ import { UserModule } from './api/user/user.module';
 import { MedicalTicketModule } from './api/medical-ticket/medical-ticket.module';
 import { PatientModule } from './api/patient/patient.module';
 import { VisitModule } from './api/visit/visit.module';
+import { AppointmentModule } from './api/appointment/appointment.module';
+import { WorkScheduleModule } from './api/work-schedule/work-schedule.module';
+import { RoomModule } from './api/room/room.module';
+import { MedicalServiceModule } from './api/medical-service/medical-service.module';
+
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
@@ -36,6 +41,10 @@ import { VisitModule } from './api/visit/visit.module';
     MedicalTicketModule,
     PatientModule,
     VisitModule
+    AppointmentModule,
+    WorkScheduleModule,
+    RoomModule,
+    MedicalServiceModule,
   ],
   controllers: [],
   providers: [],
