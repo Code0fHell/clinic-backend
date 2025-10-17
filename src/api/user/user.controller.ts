@@ -6,13 +6,14 @@ import { AuthGuard } from '@nestjs/passport';
 import { UserService } from './user.service';
 import { extname } from 'path';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { File } from 'multer';
 
 @ApiTags('user')
 @ApiBearerAuth()
 @UseGuards(AuthGuard('jwt'))
 @Controller('api/v1/user')
 export class UserController {
-  constructor(private readonly userService: UserService) {}
+  constructor(private readonly userService: UserService) { }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get user by ID' })
@@ -47,7 +48,7 @@ export class UserController {
     },
     limits: { fileSize: 2 * 1024 * 1024 }, // 2MB
   }))
-  async uploadAvatar(@Req() req, @UploadedFile() file: Express.Multer.File) {
+  async uploadAvatar(@Req() req, @UploadedFile() file: File) {
     const userId = req.user.userId;
     const avatarPath = `/uploads/avatar/${file.filename}`;
     await this.userService.updateProfile(userId, { avatar: avatarPath });
