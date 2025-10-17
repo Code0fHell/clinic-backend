@@ -40,7 +40,7 @@ import { MedicalServiceModule } from './api/medical-service/medical-service.modu
     UserModule,
     MedicalTicketModule,
     PatientModule,
-    VisitModule
+    VisitModule,
     AppointmentModule,
     WorkScheduleModule,
     RoomModule,
