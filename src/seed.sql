@@ -36,7 +36,12 @@ CREATE TABLE IF NOT EXISTS `staff` (
 -- 3. PATIENT (composition -> user)
 CREATE TABLE IF NOT EXISTS `patient` (
   `id` CHAR(36) PRIMARY KEY,
-  `user_id` CHAR(36) UNIQUE NOT NULL,
+  `user_id` CHAR(36) UNIQUE NULL,
+  `patient_full_name` VARCHAR(255),
+  `patient_phone` VARCHAR(255),
+  `patient_address` VARCHAR(255),
+  `patient_dob` DATE,
+  `patient_gender` ENUM('NAM','NU','KHAC'),
   `father_name` VARCHAR(255),
   `mother_name` VARCHAR(255),
   `father_phone` VARCHAR(20),
@@ -122,8 +127,10 @@ CREATE TABLE IF NOT EXISTS `medical_ticket` (
   `barcode` VARCHAR(100) UNIQUE,
   `assigned_doctor_id` CHAR(36),
   `issued_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  -- `created_by` CHAR(36),
   FOREIGN KEY (`visit_id`) REFERENCES `visit`(`id`),
-  FOREIGN KEY (`assigned_doctor_id`) REFERENCES `staff`(`id`)
+  FOREIGN KEY (`assigned_doctor_id`) REFERENCES `staff`(`id`),
+  -- FOREIGN KEY (`created_by`) REFERENCES `staff`(`id`)
 ) ENGINE=InnoDB;
 
 -- 10. INDICATION_TICKET

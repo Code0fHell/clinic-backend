@@ -4,6 +4,9 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthModule } from './api/auth/auth.module';
 import { StaffModule } from './api/staff/staff.module';
 import { UserModule } from './api/user/user.module';
+import { MedicalTicketModule } from './api/medical-ticket/medical-ticket.module';
+import { PatientModule } from './api/patient/patient.module';
+import { VisitModule } from './api/visit/visit.module';
 import { AppointmentModule } from './api/appointment/appointment.module';
 import { WorkScheduleModule } from './api/work-schedule/work-schedule.module';
 import { RoomModule } from './api/room/room.module';
@@ -35,6 +38,9 @@ import { MedicalServiceModule } from './api/medical-service/medical-service.modu
     AuthModule,
     StaffModule,
     UserModule,
+    MedicalTicketModule,
+    PatientModule,
+    VisitModule
     AppointmentModule,
     WorkScheduleModule,
     RoomModule,
@@ -43,4 +49,4 @@ import { MedicalServiceModule } from './api/medical-service/medical-service.modu
   controllers: [],
   providers: [],
 })
-export class AppModule {}
+export class AppModule { }
