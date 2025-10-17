@@ -4,7 +4,9 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthModule } from './api/auth/auth.module';
 import { StaffModule } from './api/staff/staff.module';
 import { UserModule } from './api/user/user.module';
-
+import { MedicalTicketModule } from './api/medical-ticket/medical-ticket.module';
+import { PatientModule } from './api/patient/patient.module';
+import { VisitModule } from './api/visit/visit.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
@@ -31,8 +33,11 @@ import { UserModule } from './api/user/user.module';
     AuthModule,
     StaffModule,
     UserModule,
+    MedicalTicketModule,
+    PatientModule,
+    VisitModule
   ],
   controllers: [],
   providers: [],
 })
-export class AppModule {}
+export class AppModule { }
