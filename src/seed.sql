@@ -210,6 +210,7 @@ CREATE TABLE IF NOT EXISTS `lab_test_result` (
 CREATE TABLE IF NOT EXISTS `medicine` (
   `id` CHAR(36) PRIMARY KEY,
   `name` VARCHAR(255),
+  `description` TEXT,
   `price` DECIMAL(12,2),
   `category` VARCHAR(255),
   `unit` VARCHAR(50),
