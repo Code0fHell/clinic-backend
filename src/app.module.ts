@@ -11,6 +11,7 @@ import { AppointmentModule } from './api/appointment/appointment.module';
 import { WorkScheduleModule } from './api/work-schedule/work-schedule.module';
 import { RoomModule } from './api/room/room.module';
 import { MedicalServiceModule } from './api/medical-service/medical-service.module';
+import { MedicineModule } from './api/medicine/medicine.module';
 
 @Module({
   imports: [
@@ -45,6 +46,7 @@ import { MedicalServiceModule } from './api/medical-service/medical-service.modu
     WorkScheduleModule,
     RoomModule,
     MedicalServiceModule,
+    MedicineModule,
   ],
   controllers: [],
   providers: [],
