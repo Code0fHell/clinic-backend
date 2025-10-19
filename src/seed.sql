@@ -129,7 +129,7 @@ CREATE TABLE IF NOT EXISTS `medical_ticket` (
   `issued_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
   -- `created_by` CHAR(36),
   FOREIGN KEY (`visit_id`) REFERENCES `visit`(`id`),
-  FOREIGN KEY (`assigned_doctor_id`) REFERENCES `staff`(`id`),
+  FOREIGN KEY (`assigned_doctor_id`) REFERENCES `staff`(`id`)
   -- FOREIGN KEY (`created_by`) REFERENCES `staff`(`id`)
 ) ENGINE=InnoDB;
 
@@ -206,8 +206,8 @@ CREATE TABLE IF NOT EXISTS `lab_test_result` (
   FOREIGN KEY (`patient_id`) REFERENCES `patient`(`id`)
 ) ENGINE=InnoDB;
 
--- 16. MEDICINES
-CREATE TABLE IF NOT EXISTS `medicines` (
+-- 16. MEDICINE
+CREATE TABLE IF NOT EXISTS `medicine` (
   `id` CHAR(36) PRIMARY KEY,
   `name` VARCHAR(255),
   `price` DECIMAL(12,2),
@@ -219,7 +219,7 @@ CREATE TABLE IF NOT EXISTS `medicines` (
 ) ENGINE=InnoDB;
 
 -- 17. PRESCRIPTIONS (cập nhật: thêm medical_record_id optional)
-CREATE TABLE IF NOT EXISTS `prescriptions` (
+CREATE TABLE IF NOT EXISTS `prescription` (
   `id` CHAR(36) PRIMARY KEY,
   `patient_id` CHAR(36),
   `doctor_id` CHAR(36),
@@ -231,15 +231,15 @@ CREATE TABLE IF NOT EXISTS `prescriptions` (
   FOREIGN KEY (`medical_record_id`) REFERENCES `medical_record`(`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
--- 18. PRESCRIPTION_DETAILS
-CREATE TABLE IF NOT EXISTS `prescription_details` (
+-- 18. PRESCRIPTION_DETAIL
+CREATE TABLE IF NOT EXISTS `prescription_detail` (
   `id` CHAR(36) PRIMARY KEY,
   `prescription_id` CHAR(36),
   `medicine_id` CHAR(36),
   `quantity` INT,
   `dosage` VARCHAR(255),
-  FOREIGN KEY (`prescription_id`) REFERENCES `prescriptions`(`id`),
-  FOREIGN KEY (`medicine_id`) REFERENCES `medicines`(`id`)
+  FOREIGN KEY (`prescription_id`) REFERENCES `prescription`(`id`),
+  FOREIGN KEY (`medicine_id`) REFERENCES `medicine`(`id`)
 ) ENGINE=InnoDB;
 
 -- 19. BILL
@@ -254,7 +254,7 @@ CREATE TABLE IF NOT EXISTS `bill` (
   `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (`patient_id`) REFERENCES `patient`(`id`),
   FOREIGN KEY (`doctor_id`) REFERENCES `staff`(`id`),
-  FOREIGN KEY (`prescription_id`) REFERENCES `prescriptions`(`id`),
+  FOREIGN KEY (`prescription_id`) REFERENCES `prescription`(`id`),
   FOREIGN KEY (`medical_ticket_id`) REFERENCES `medical_ticket`(`id`)
 ) ENGINE=InnoDB;
 
