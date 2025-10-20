@@ -1,8 +1,9 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
 import { Bill } from './bill.entity';
 import { User } from './user.entity';
 import { PaymentMethod } from '../enums/payment-method.enum';
 import { PaymentStatus } from '../enums/payment-status.enum';
+import { Patient } from './patient.entity';
 
 @Entity()
 export class Payment {
@@ -10,20 +11,28 @@ export class Payment {
   id: string;
 
   @ManyToOne(() => Bill, (b) => b.payments)
+  @JoinColumn( {name: 'bill_id'})
   bill: Bill;
 
   @Column({ type: 'decimal', precision: 12, scale: 2 })
   amount: number;
 
   @Column({ type: 'enum', enum: PaymentMethod })
-  paymentMethod: PaymentMethod;
+  payment_method: PaymentMethod;
 
   @Column({ type: 'enum', enum: PaymentStatus, default: PaymentStatus.PENDING })
-  paymentStatus: PaymentStatus;
+  payment_status: PaymentStatus;
 
-  @ManyToOne(() => User)
-  paidBy: User;
+  /** Nếu bệnh nhân có tài khoản (user) */
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'paid_by_user_id' })
+  paidByUser?: User | null;
 
-  @CreateDateColumn()
-  paidAt: Date;
+  /** Nếu bệnh nhân không có tài khoản */
+  @ManyToOne(() => Patient, { nullable: true })
+  @JoinColumn({ name: 'paid_by_patient_id' })
+  paidByPatient?: Patient | null;
+
+  @Column({type: 'timestamp', default: () => 'CURRENT_TIMESTAMP'})
+  paid_at: Date;
 }

@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, JoinColumn } from 'typeorm';
 import { MedicalTicket } from './medical-ticket.entity';
 import { Staff } from './staff.entity';
 import { Patient } from './patient.entity';
@@ -10,13 +10,16 @@ export class IndicationTicket {
   id: string;
 
   @ManyToOne(() => MedicalTicket, (m) => m.indications)
-  medical_ticket_id: MedicalTicket;
+  @JoinColumn( { name: 'medical_ticket_id'})
+  medical_ticket: MedicalTicket;
 
   @ManyToOne(() => Staff)
-  doctor_id: Staff;
+  @JoinColumn( { name: 'doctor_id'})
+  doctor: Staff;
 
   @ManyToOne(() => Patient)
-  patient_id: Patient;
+  @JoinColumn( {name: 'patient_id'})
+  patient: Patient;
 
   @Column({ type: 'text', nullable: true })
   diagnosis: string;
@@ -32,7 +35,4 @@ export class IndicationTicket {
 
   @OneToMany(() => ServiceIndication, (s) => s.indication)
   serviceItems: ServiceIndication[];
-
-  @ManyToOne(() => MedicalTicket, (m) => m.indications)
-  medicalTicket: MedicalTicket;
 }

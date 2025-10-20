@@ -26,6 +26,6 @@ export class MedicalTicket {
   // @JoinColumn({ name: 'created_by' })
   // created_by: Staff;
 
-  @OneToMany(() => IndicationTicket, (i) => i.medicalTicket)
+  @OneToMany(() => IndicationTicket, (i) => i.medical_ticket)
   indications: IndicationTicket[];
 }
