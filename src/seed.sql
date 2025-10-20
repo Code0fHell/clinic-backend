@@ -129,6 +129,7 @@ CREATE TABLE IF NOT EXISTS `medical_ticket` (
   `issued_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (`visit_id`) REFERENCES `visit`(`id`),
   FOREIGN KEY (`assigned_doctor_id`) REFERENCES `staff`(`id`)
+  -- FOREIGN KEY (`created_by`) REFERENCES `staff`(`id`)
 ) ENGINE=InnoDB;
 
 -- 10. INDICATION_TICKET

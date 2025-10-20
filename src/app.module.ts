@@ -11,6 +11,7 @@ import { AppointmentModule } from "./api/appointment/appointment.module";
 import { WorkScheduleModule } from "./api/work-schedule/work-schedule.module";
 import { RoomModule } from "./api/room/room.module";
 import { MedicalServiceModule } from "./api/medical-service/medical-service.module";
+import { MedicineModule } from './api/medicine/medicine.module';
 import { IndicationModule } from "./api/indication/indication.module";
 import { BillModule } from "./api/bill/bill.module";
 import { ImagingModule } from "./api/imaging/imaging.module";
@@ -49,6 +50,7 @@ import { PaymentModule } from "./api/payment/payment.module";
         WorkScheduleModule,
         RoomModule,
         MedicalServiceModule,
+        MedicineModule,
         IndicationModule,
         BillModule,
         ImagingModule,
