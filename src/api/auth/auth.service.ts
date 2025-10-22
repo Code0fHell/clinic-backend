@@ -49,19 +49,28 @@ export class AuthService {
 
   // Đăng nhập và trả về access_token
   async login(loginDto: LoginDto) {
-    const user = await this.userService.findByUsername(loginDto.username);
-    if (!user) throw new UnauthorizedException('Invalid credentials');
+      const user = await this.userService.findByUsername(loginDto.username);
+      if (!user) throw new UnauthorizedException('Invalid credentials');
 
-    const isMatch = await bcrypt.compare(loginDto.password, user.password);
-    if (!isMatch) throw new UnauthorizedException('Invalid credentials');
+      const isMatch = await bcrypt.compare(loginDto.password, user.password);
+      if (!isMatch) throw new UnauthorizedException('Invalid credentials');
 
-    const payload = {
-      sub: user.id,
-      username: user.username,
-      role: user.user_role,
-    };
-    const access_token = this.jwtService.sign(payload);
+      const payload = {
+        sub: user.id,
+        username: user.username,
+        role: user.user_role,
+      };
+      const token = this.jwtService.sign(payload);
 
-    return { access_token };
+      return {
+        message: 'Login successful',
+        token,
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          role: user.user_role,
+        },
+      };
   }
 }
