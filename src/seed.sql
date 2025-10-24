@@ -1,3 +1,5 @@
+-- drop database clinic_management;
+
 CREATE DATABASE IF NOT EXISTS clinic_management;
 USE clinic_management;
 
@@ -259,7 +261,7 @@ CREATE TABLE IF NOT EXISTS `bill` (
   FOREIGN KEY (`doctor_id`) REFERENCES `staff`(`id`),
   FOREIGN KEY (`prescription_id`) REFERENCES `prescription`(`id`),
   FOREIGN KEY (`medical_ticket_id`) REFERENCES `medical_ticket`(`id`),
-  FOREIGN KEY (`indication_ticket_id`) REFERENCES `indication_ticket_id`(`id`)
+  FOREIGN KEY (`indication_ticket_id`) REFERENCES `indication_ticket`(`id`)
 ) ENGINE=InnoDB;
 
 -- 20. PAYMENT
