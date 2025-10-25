@@ -4,6 +4,7 @@ import {
   Column,
   ManyToOne,
   OneToMany,
+  JoinColumn,
 } from 'typeorm';
 import { Patient } from './patient.entity';
 import { Staff } from './staff.entity';
@@ -16,16 +17,18 @@ export class Prescription {
   id: string;
 
   @ManyToOne(() => Patient)
+  @JoinColumn( { name: 'patient_id'})
   patient: Patient;
 
   @ManyToOne(() => Staff)
+  @JoinColumn( { name: 'doctor_id'})
   doctor: Staff;
 
   @Column({ type: 'text', nullable: true })
   conclusion: string;
 
   @Column({type: 'date', default: () => 'CURRENT_TIMESTAMP'})
-  createdAt: Date;
+  created_at: Date;
 
   @OneToMany(() => PrescriptionDetail, (d) => d.prescription)
   details: PrescriptionDetail[];
@@ -34,5 +37,12 @@ export class Prescription {
     nullable: true,
     onDelete: 'SET NULL',
   })
-  medicalRecord?: MedicalRecord | null;
+  @JoinColumn( { name: 'medical_record_id'})
+  medical_record?: MedicalRecord | null;
+  
+  @Column({ type: 'date', nullable: true })
+  return_date?: Date | null;
+
+  @Column({ type: 'decimal', precision: 12, scale: 2 })
+  total_fee: number;
 }

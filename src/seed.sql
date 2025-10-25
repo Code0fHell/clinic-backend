@@ -230,6 +230,8 @@ CREATE TABLE IF NOT EXISTS `prescription` (
   `medical_record_id` CHAR(36) NULL,
   `conclusion` TEXT,
   `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  `return_date` DATE NULL,
+  `total_fee` DECIMAL(12,2),
   FOREIGN KEY (`patient_id`) REFERENCES `patient`(`id`),
   FOREIGN KEY (`doctor_id`) REFERENCES `staff`(`id`),
   FOREIGN KEY (`medical_record_id`) REFERENCES `medical_record`(`id`) ON DELETE SET NULL
