@@ -53,7 +53,7 @@ export class AuthService {
       if (!user) throw new UnauthorizedException('Invalid credentials');
 
       const isMatch = await bcrypt.compare(loginDto.password, user.password);
-      if (!isMatch) throw new UnauthorizedException('Invalid credentials');
+      if (!isMatch) throw new UnauthorizedException('Mật khẩu không đúng hãy kiểm tra lại!');
 
       const payload = {
         sub: user.id,
@@ -68,6 +68,7 @@ export class AuthService {
         user: {
           id: user.id,
           username: user.username,
+          full_name: user.full_name,
           email: user.email,
           role: user.user_role,
         },

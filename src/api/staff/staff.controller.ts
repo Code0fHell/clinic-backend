@@ -13,6 +13,22 @@ import { DoctorType } from 'src/shared/enums/doctor-type.enum';
 @Controller('api/v1/staff')
 export class StaffController {
   constructor(private readonly staffService: StaffService) {}
+  
+  // Lấy danh sách bác sĩ lâm sàng
+  @Get('clinical-doctors')
+  @ApiOperation({ summary: 'Get all clinical doctors'})
+  @Roles('PATIENT')
+  async getClinicalDoctors() {
+    return this.staffService.findDoctorsByType(DoctorType.CLINICAL);
+  }
+
+  // Lấy lịch làm việc của bác sĩ
+  @Get(':id/work-schedules')
+  @ApiOperation({ summary: 'Get work schedules of a doctor' })
+  @Roles('PATIENT')
+  async getWorkSchedules(@Param('id') doctorId: string) {
+    return this.staffService.getWorkSchedules(doctorId);
+  }
 
   @Get()
   @ApiOperation({ summary: 'Get all staff' })
@@ -47,21 +63,5 @@ export class StaffController {
   @Roles('OWNER')
   async authorizeDoctor(@Param('id') id: string, @Body() dto: AuthorizeDoctorDto) {
     return this.staffService.authorizeDoctor(id, dto.doctor_type);
-  }
-
-  // Lấy danh sách bác sĩ lâm sàng
-  @Get('clinical-doctors')
-  @ApiOperation({ summary: 'Get all clinical doctors'})
-  @Roles('PATIENT')
-  async getClinicalDoctors() {
-    return this.staffService.findDoctorsByType(DoctorType.CLINICAL);
-  }
-
-  // Lấy lịch làm việc của bác sĩ
-  @Get(':id/work-schedules')
-  @ApiOperation({ summary: 'Get work schedules of a doctor' })
-  @Roles('PATIENT')
-  async getWorkSchedules(@Param('id') doctorId: string) {
-    return this.staffService.getWorkSchedules(doctorId);
   }
 }

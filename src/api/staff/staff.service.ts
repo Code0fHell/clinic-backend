@@ -79,10 +79,29 @@ export class StaffService {
 
   // Tìm bác sĩ theo loại
   async findDoctorsByType(type: DoctorType) {
-    return this.staffRepository.find({
-      where: { doctor_type: type, is_available: true},
+    const doctors = await this.staffRepository.find({
+      where: { doctor_type: type, is_available: true },
       relations: ['user'],
-    })
+      select: {
+        id: true,
+        position: true,
+        department: true,
+        user: {
+          id: true,
+          full_name: true,
+          email: true,
+          avatar: true,
+        },
+      },
+    });
+    
+    return doctors.map((d) => ({
+      id: d.id,
+      full_name: d.user?.full_name || 'Chưa cập nhật',
+      position: d.position,
+      department: d.department,
+      avatar: d.user?.avatar || null,
+    }));
   }
 
   //Lấy lịch làm việc của bác sĩ
