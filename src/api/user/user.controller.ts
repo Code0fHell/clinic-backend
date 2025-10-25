@@ -6,7 +6,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { UserService } from './user.service';
 import { extname } from 'path';
 import { UpdateProfileDto } from './dto/update-profile.dto';
-import { File } from 'multer';
+// import { File } from 'multer';
 
 @ApiTags('user')
 @ApiBearerAuth()
@@ -48,7 +48,7 @@ export class UserController {
     },
     limits: { fileSize: 2 * 1024 * 1024 }, // 2MB
   }))
-  async uploadAvatar(@Req() req, @UploadedFile() file: File) {
+  async uploadAvatar(@Req() req, @UploadedFile() file: Express.Multer.File) {
     const userId = req.user.userId;
     const avatarPath = `/uploads/avatar/${file.filename}`;
     await this.userService.updateProfile(userId, { avatar: avatarPath });
