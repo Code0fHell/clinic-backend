@@ -1,3 +1,5 @@
+-- drop database clinic_management;
+
 CREATE DATABASE IF NOT EXISTS clinic_management;
 USE clinic_management;
 
@@ -36,7 +38,12 @@ CREATE TABLE IF NOT EXISTS `staff` (
 -- 3. PATIENT (composition -> user)
 CREATE TABLE IF NOT EXISTS `patient` (
   `id` CHAR(36) PRIMARY KEY,
-  `user_id` CHAR(36) UNIQUE NOT NULL,
+  `user_id` CHAR(36) UNIQUE NULL,
+  `patient_full_name` VARCHAR(255),
+  `patient_phone` VARCHAR(255),
+  `patient_address` VARCHAR(255),
+  `patient_dob` DATE,
+  `patient_gender` ENUM('NAM','NU','KHAC'),
   `father_name` VARCHAR(255),
   `mother_name` VARCHAR(255),
   `father_phone` VARCHAR(20),
@@ -124,6 +131,7 @@ CREATE TABLE IF NOT EXISTS `medical_ticket` (
   `issued_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (`visit_id`) REFERENCES `visit`(`id`),
   FOREIGN KEY (`assigned_doctor_id`) REFERENCES `staff`(`id`)
+  -- FOREIGN KEY (`created_by`) REFERENCES `staff`(`id`)
 ) ENGINE=InnoDB;
 
 -- 10. INDICATION_TICKET
@@ -165,6 +173,7 @@ CREATE TABLE IF NOT EXISTS `service_indication` (
   `indication_id` CHAR(36),
   `medical_service_id` CHAR(36),
   `quantity` INT DEFAULT 1,
+  `queue_number` INT,
   FOREIGN KEY (`indication_id`) REFERENCES `indication_ticket`(`id`),
   FOREIGN KEY (`medical_service_id`) REFERENCES `medical_service`(`id`)
 ) ENGINE=InnoDB;
@@ -173,6 +182,7 @@ CREATE TABLE IF NOT EXISTS `service_indication` (
 CREATE TABLE IF NOT EXISTS `image_result` (
   `id` CHAR(36) PRIMARY KEY,
   `indication_id` CHAR(36),
+  `image_url` VARCHAR(255),
   `barcode` VARCHAR(100) UNIQUE,
   `doctor_id` CHAR(36),
   `patient_id` CHAR(36),
@@ -199,10 +209,11 @@ CREATE TABLE IF NOT EXISTS `lab_test_result` (
   FOREIGN KEY (`patient_id`) REFERENCES `patient`(`id`)
 ) ENGINE=InnoDB;
 
--- 16. MEDICINES
-CREATE TABLE IF NOT EXISTS `medicines` (
+-- 16. MEDICINE
+CREATE TABLE IF NOT EXISTS `medicine` (
   `id` CHAR(36) PRIMARY KEY,
   `name` VARCHAR(255),
+  `description` TEXT,
   `price` DECIMAL(12,2),
   `category` VARCHAR(255),
   `unit` VARCHAR(50),
@@ -211,28 +222,30 @@ CREATE TABLE IF NOT EXISTS `medicines` (
   `expiry_date` DATE
 ) ENGINE=InnoDB;
 
--- 17. PRESCRIPTIONS (cập nhật: thêm medical_record_id optional)
-CREATE TABLE IF NOT EXISTS `prescriptions` (
+-- 17. PRESCRIPTION (cập nhật: thêm medical_record_id optional)
+CREATE TABLE IF NOT EXISTS `prescription` (
   `id` CHAR(36) PRIMARY KEY,
   `patient_id` CHAR(36),
   `doctor_id` CHAR(36),
   `medical_record_id` CHAR(36) NULL,
   `conclusion` TEXT,
   `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  `return_date` DATE NULL,
+  `total_fee` DECIMAL(12,2),
   FOREIGN KEY (`patient_id`) REFERENCES `patient`(`id`),
   FOREIGN KEY (`doctor_id`) REFERENCES `staff`(`id`),
   FOREIGN KEY (`medical_record_id`) REFERENCES `medical_record`(`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
--- 18. PRESCRIPTION_DETAILS
-CREATE TABLE IF NOT EXISTS `prescription_details` (
+-- 18. PRESCRIPTION_DETAIL
+CREATE TABLE IF NOT EXISTS `prescription_detail` (
   `id` CHAR(36) PRIMARY KEY,
   `prescription_id` CHAR(36),
   `medicine_id` CHAR(36),
   `quantity` INT,
   `dosage` VARCHAR(255),
-  FOREIGN KEY (`prescription_id`) REFERENCES `prescriptions`(`id`),
-  FOREIGN KEY (`medicine_id`) REFERENCES `medicines`(`id`)
+  FOREIGN KEY (`prescription_id`) REFERENCES `prescription`(`id`),
+  FOREIGN KEY (`medicine_id`) REFERENCES `medicine`(`id`)
 ) ENGINE=InnoDB;
 
 -- 19. BILL
@@ -244,11 +257,13 @@ CREATE TABLE IF NOT EXISTS `bill` (
   `doctor_id` CHAR(36),
   `prescription_id` CHAR(36),
   `medical_ticket_id` CHAR(36),
+  `indication_ticket_id` CHAR (36),
   `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (`patient_id`) REFERENCES `patient`(`id`),
   FOREIGN KEY (`doctor_id`) REFERENCES `staff`(`id`),
-  FOREIGN KEY (`prescription_id`) REFERENCES `prescriptions`(`id`),
-  FOREIGN KEY (`medical_ticket_id`) REFERENCES `medical_ticket`(`id`)
+  FOREIGN KEY (`prescription_id`) REFERENCES `prescription`(`id`),
+  FOREIGN KEY (`medical_ticket_id`) REFERENCES `medical_ticket`(`id`),
+  FOREIGN KEY (`indication_ticket_id`) REFERENCES `indication_ticket`(`id`)
 ) ENGINE=InnoDB;
 
 -- 20. PAYMENT
@@ -256,10 +271,12 @@ CREATE TABLE IF NOT EXISTS `payment` (
   `id` CHAR(36) PRIMARY KEY,
   `bill_id` CHAR(36),
   `amount` DECIMAL(12,2),
-  `payment_method` ENUM('CASH','BANK_TRANSFER'),
-  `payment_status` ENUM('PENDING','SUCCESS') DEFAULT 'PENDING',
-  `paid_by` CHAR(36),
+  `payment_method` ENUM('CASH','BANK_TRANSFER', 'VIETQR'),
+  `payment_status` ENUM('PENDING','SUCCESS', 'FAILED') DEFAULT 'PENDING',
+  `paid_by_user_id` CHAR(36),
+  `paid_by_patient_id` CHAR(36),
   `paid_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (`bill_id`) REFERENCES `bill`(`id`),
-  FOREIGN KEY (`paid_by`) REFERENCES `user`(`id`)
+  FOREIGN KEY (`paid_by_user_id`) REFERENCES `user`(`id`),
+  FOREIGN KEY (`paid_by_patient_id`) REFERENCES `patient`(`id`)
 ) ENGINE=InnoDB;

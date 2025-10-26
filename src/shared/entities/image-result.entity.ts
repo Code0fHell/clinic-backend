@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne} from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn} from 'typeorm';
 import { IndicationTicket } from './indication-ticket.entity';
 import { Staff } from './staff.entity';
 import { Patient } from './patient.entity';
@@ -9,13 +9,19 @@ export class ImageResult {
   id: string;
 
   @ManyToOne(() => IndicationTicket)
+  @JoinColumn( {name: 'indication_id'})
   indication: IndicationTicket;
 
   @ManyToOne(() => Staff)
+  @JoinColumn( { name: 'doctor_id'})
   doctor: Staff;
 
   @ManyToOne(() => Patient)
+  @JoinColumn( { name: 'patient_id'})
   patient: Patient;
+
+  @Column({ nullable: true }) 
+  image_url: string;
 
   @Column({ unique: true, nullable: true })
   barcode: string;

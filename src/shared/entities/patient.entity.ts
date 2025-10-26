@@ -2,14 +2,31 @@ import { Entity, PrimaryGeneratedColumn, Column, OneToOne, JoinColumn, OneToMany
 import { User } from './user.entity';
 import { Visit } from './visit.entity';
 import { MedicalRecord } from './medical-record.entity';
+import { Gender } from '../enums/gender.enum';
+
 @Entity()
 export class Patient {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @OneToOne(() => User, user => user.patient)
+  @OneToOne(() => User, user => user.patient, { nullable: true })
   @JoinColumn({ name: 'user_id' })
-  user: User;
+  user?: User | null;
+
+  @Column()
+  patient_full_name: string;
+
+  @Column({ type: 'text' })
+  patient_address: string;
+
+  @Column()
+  patient_phone: string;
+
+  @Column({ type: 'date' })
+  patient_dob: Date;
+
+  @Column({ type: 'enum', enum: Gender })
+  patient_gender: Gender;
 
   @Column({ nullable: true })
   father_name: string;
