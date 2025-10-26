@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsString, IsNotEmpty, IsEmail, IsDateString } from 'class-validator';
+import { Gender } from 'src/shared/enums/gender.enum';
 
 export class GuestBookAppointmentDto {
     @IsString()
@@ -13,8 +14,8 @@ export class GuestBookAppointmentDto {
 
     @IsString()
     @IsNotEmpty()
-    @ApiProperty()
-    gender: string;
+    @ApiProperty({ enum: Gender })
+    gender: Gender;
 
     @IsString()
     @IsNotEmpty()

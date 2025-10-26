@@ -86,7 +86,8 @@ export class AppointmentService {
         const user = this.userRepository.create({
             full_name: dto.full_name,
             email: dto.email,
-            username: dto.email,
+            username: dto.email.split('@')[0],
+            password: 'guest',
             user_role: UserRole.PATIENT,
         });
         await this.userRepository.save(user);
@@ -96,7 +97,6 @@ export class AppointmentService {
             user,
             patient_full_name: dto.full_name,
             patient_dob: new Date(dto.dob),
-            patient_gender: dto.gender,
             patient_phone: dto.phone
         });
         await this.patientRepository.save(patient);
