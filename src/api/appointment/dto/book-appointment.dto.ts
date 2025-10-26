@@ -1,12 +1,15 @@
 import { ApiProperty } from '@nestjs/swagger';
 
 export class BookAppointmentDto {
-  @ApiProperty()
+  @ApiProperty( {required: true})
   doctor_id: string;
 
-  @ApiProperty()
+  @ApiProperty( {required: true})
   schedule_detail_id: string;
 
   @ApiProperty()
   appointment_date: Date;
+
+  @ApiProperty( { required: true})
+  reason?: string
 }
