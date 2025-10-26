@@ -9,6 +9,8 @@ import { AppointmentStatus } from "../../shared/enums/appointment-status.enum";
 import { BookAppointmentDto } from "./dto/book-appointment.dto";
 import { Session } from "src/shared/enums/session.enum";
 import { User } from "src/shared/entities/user.entity";
+import { GuestBookAppointmentDto } from "./dto/guest-book-appointment.dto";
+import { UserRole } from "src/shared/enums/user-role.enum";
 
 @Injectable()
 export class AppointmentService {
@@ -21,6 +23,8 @@ export class AppointmentService {
         private readonly patientRepository: Repository<Patient>,
         @InjectRepository(Appointment)
         private readonly appointmentRepository: Repository<Appointment>,
+        @InjectRepository(User)
+        private readonly userRepository: Repository<User>
     ) {}
 
     async getAvailableSlots(scheduleId: string) {
@@ -56,7 +60,62 @@ export class AppointmentService {
             patient,
             schedule_detail: slot,
             appointment_date: dto.appointment_date,
-            session: slot.slot_start.getHours() < 12 ? Session.MORNING : Session.AFTERNOON,
+            reason: dto.reason,
+            session:
+                slot.slot_start.getHours() < 12
+                    ? Session.MORNING
+                    : Session.AFTERNOON,
+            status: AppointmentStatus.CHECKED_IN,
+        });
+        await this.appointmentRepository.save(appointment);
+
+        return { message: "Appointment booked", appointmentId: appointment.id };
+    }
+
+    async guestBookAppointment(dto: GuestBookAppointmentDto) {
+        // Check doctor and slot
+        const doctor = await this.staffRepository.findOne({
+            where: { id: dto.doctor_id },
+        });
+        const slot = await this.workScheduleDetailRepository.findOne({
+            where: { id: dto.schedule_detail_id, is_booked: false },
+        });
+        if (!doctor || !slot) throw new Error("Invalid booking data");
+
+        // Create User (optional, or skip if you want only Patient)
+        const user = this.userRepository.create({
+            full_name: dto.full_name,
+            email: dto.email,
+            username: dto.email,
+            user_role: UserRole.PATIENT,
+        });
+        await this.userRepository.save(user);
+
+        // Create Patient
+        const patient = this.patientRepository.create({
+            user,
+            patient_full_name: dto.full_name,
+            patient_dob: new Date(dto.dob),
+            patient_gender: dto.gender,
+            patient_phone: dto.phone
+        });
+        await this.patientRepository.save(patient);
+
+        // Mark slot as booked
+        slot.is_booked = true;
+        await this.workScheduleDetailRepository.save(slot);
+
+        // Create appointment
+        const appointment = this.appointmentRepository.create({
+            doctor,
+            patient,
+            schedule_detail: slot,
+            appointment_date: dto.appointment_date,
+            reason: dto.reason,
+            session:
+                slot.slot_start.getHours() < 12
+                    ? Session.MORNING
+                    : Session.AFTERNOON,
             status: AppointmentStatus.CHECKED_IN,
         });
         await this.appointmentRepository.save(appointment);

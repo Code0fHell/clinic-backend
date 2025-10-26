@@ -6,9 +6,10 @@ import { AppointmentService } from './appointment.service';
 import { WorkScheduleDetail } from 'src/shared/entities/work-schedule-detail.entity';
 import { Staff } from 'src/shared/entities/staff.entity';
 import { Patient } from 'src/shared/entities/patient.entity';
+import { User } from 'src/shared/entities/user.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Appointment, WorkScheduleDetail, Staff, Patient])],
+  imports: [TypeOrmModule.forFeature([Appointment, WorkScheduleDetail, Staff, Patient, User])],
   providers: [AppointmentService],
   controllers: [AppointmentController],
   exports: [AppointmentService],

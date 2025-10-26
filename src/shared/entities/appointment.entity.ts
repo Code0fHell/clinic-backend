@@ -25,6 +25,9 @@ export class Appointment {
   @Column({ type: 'datetime' })
   appointment_date: Date;
 
+  @Column( {type: 'varchar', length: 500, nullable: false})
+  reason: string;
+
   @Column({ type: 'enum', enum: Session })
   session: Session;
 

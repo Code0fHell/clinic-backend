@@ -9,12 +9,14 @@ import {
 } from "@nestjs/common";
 import { AppointmentService } from "./appointment.service";
 import { ApiTags, ApiBearerAuth, ApiOperation } from "@nestjs/swagger";
-import { AuthGuard } from "@nestjs/passport";
 import { BookAppointmentDto } from "./dto/book-appointment.dto";
+import { GuestBookAppointmentDto } from "./dto/guest-book-appointment.dto";
+import { JwtAuthGuard } from "src/common/guards/jwt-auth.guard";
+import { RolesGuard } from "src/common/guards/roles.guard";
+import { Roles } from "src/common/guards/roles.decorator";
 
 @ApiTags("appointment")
 @ApiBearerAuth()
-@UseGuards(AuthGuard("jwt"))
 @Controller("api/v1/appointment")
 export class AppointmentController {
     constructor(private readonly appointmentService: AppointmentService) {}
@@ -25,10 +27,18 @@ export class AppointmentController {
         return this.appointmentService.getAvailableSlots(scheduleId);
     }
 
-    @Post("book")
+    @Post("book") // Api dành cho bệnh nhân đã đăng nhập
+    @Roles("PATIENT")
+    @UseGuards(JwtAuthGuard, RolesGuard)
     @ApiOperation({ summary: "Book an appointment" })
     async bookAppointment(@Req() req, @Body() dto: BookAppointmentDto) {
         const patientId = req.user.userId;
         return this.appointmentService.bookAppointment(patientId, dto);
+    }
+
+    @Post("guest-book") // Api dành cho khách hàng không đăng nhập
+    @ApiOperation({ summary: "Guest book an appointment (no login required)" })
+    async guestBookAppointment(@Body() dto: GuestBookAppointmentDto) {
+        return this.appointmentService.guestBookAppointment(dto);
     }
 }
