@@ -41,4 +41,16 @@ export class AppointmentController {
     async guestBookAppointment(@Body() dto: GuestBookAppointmentDto) {
         return this.appointmentService.guestBookAppointment(dto);
     }
+
+    @Get("all") // API lấy tất cả cuộc hẹn
+    @ApiOperation({ summary: "Get all appointments" })
+    async getAllAppointments() {
+    return this.appointmentService.getAllAppointments();
+    }
+
+    @Get("today") // API lấy ra cuộc hẹn trong ngày dành cho bác sĩ
+    @ApiOperation({ summary: "Get today's appointments" })
+    async getTodayAppointments() {
+    return this.appointmentService.getTodayAppointments();
+    }
 }
