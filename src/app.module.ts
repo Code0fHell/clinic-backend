@@ -17,6 +17,7 @@ import { BillModule } from "./api/bill/bill.module";
 import { ImagingModule } from "./api/imaging/imaging.module";
 import { PaymentModule } from "./api/payment/payment.module";
 import { PrescriptionModule } from "./api/prescription/prescription.module";
+import { PrescriptionDetailModule } from "./api/prescription-detail/prescription-detail.module";
 
 @Module({
     imports: [
@@ -56,7 +57,8 @@ import { PrescriptionModule } from "./api/prescription/prescription.module";
         BillModule,
         ImagingModule,
         PaymentModule,
-        PrescriptionModule
+        PrescriptionModule,
+        PrescriptionDetailModule
     ],
     controllers: [],
     providers: [],
