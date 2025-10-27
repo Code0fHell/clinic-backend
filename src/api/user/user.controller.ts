@@ -6,13 +6,14 @@ import { AuthGuard } from '@nestjs/passport';
 import { UserService } from './user.service';
 import { extname } from 'path';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+// import { File } from 'multer';
 
 @ApiTags('user')
 @ApiBearerAuth()
 @UseGuards(AuthGuard('jwt'))
 @Controller('api/v1/user')
 export class UserController {
-  constructor(private readonly userService: UserService) {}
+  constructor(private readonly userService: UserService) { }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get user by ID' })

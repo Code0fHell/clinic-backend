@@ -7,11 +7,11 @@ export class Room {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
-  roomName: string;
+  @Column({type: 'char'})
+  room_name: string;
 
   @Column({ type: 'enum', enum: RoomType })
-  roomType: RoomType;
+  room_type: RoomType;
 
   @Column({ type: 'int', nullable: true })
   floor: number;
