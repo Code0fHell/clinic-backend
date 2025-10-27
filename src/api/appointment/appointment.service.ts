@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { WorkScheduleDetail } from "../../shared/entities/work-schedule-detail.entity";
-import { Repository } from "typeorm";
+import { Repository, Between } from "typeorm";
 import { Appointment } from "../../shared/entities/appointment.entity";
 import { Staff } from "../../shared/entities/staff.entity";
 import { Patient } from "../../shared/entities/patient.entity";
@@ -11,7 +11,7 @@ import { Session } from "src/shared/enums/session.enum";
 import { User } from "src/shared/entities/user.entity";
 import { GuestBookAppointmentDto } from "./dto/guest-book-appointment.dto";
 import { UserRole } from "src/shared/enums/user-role.enum";
-
+import dayjs from "dayjs";
 @Injectable()
 export class AppointmentService {
     constructor(
@@ -65,7 +65,7 @@ export class AppointmentService {
                 slot.slot_start.getHours() < 12
                     ? Session.MORNING
                     : Session.AFTERNOON,
-            status: AppointmentStatus.CHECKED_IN,
+            status: AppointmentStatus.PENDING,
         });
         await this.appointmentRepository.save(appointment);
 
@@ -116,10 +116,32 @@ export class AppointmentService {
                 slot.slot_start.getHours() < 12
                     ? Session.MORNING
                     : Session.AFTERNOON,
-            status: AppointmentStatus.CHECKED_IN,
+            status: AppointmentStatus.PENDING,
         });
         await this.appointmentRepository.save(appointment);
 
         return { message: "Appointment booked", appointmentId: appointment.id };
+    }
+
+    // Lấy ra tất cả cuộc hẹn
+    async getAllAppointments() {
+    return this.appointmentRepository.find({
+        relations: ["doctor", "patient", "schedule_detail"],
+        order: { appointment_date: "ASC" },
+    });
+    }
+
+    // Lấy ra cuộc hẹn trong ngày
+    async getTodayAppointments() {
+        const startOfDay = dayjs().startOf("day").toDate();
+        const endOfDay = dayjs().endOf("day").toDate();
+
+        return this.appointmentRepository.find({
+            where: {
+            appointment_date: Between(startOfDay, endOfDay),
+            },
+            relations: ["doctor", "patient", "schedule_detail"],
+            order: { appointment_date: "ASC" },
+        });
     }
 }
