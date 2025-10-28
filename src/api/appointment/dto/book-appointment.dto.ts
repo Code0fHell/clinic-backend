@@ -10,6 +10,9 @@ export class BookAppointmentDto {
   @ApiProperty()
   appointment_date: Date;
 
+  @ApiProperty()
+  scheduled_date: Date;
+
   @ApiProperty( { required: true})
   reason?: string
 }

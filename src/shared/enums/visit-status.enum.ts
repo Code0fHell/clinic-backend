@@ -1,5 +1,6 @@
 export enum VisitStatus {
   CHECKED_IN = 'CHECKED_IN',
+  DOING = 'DOING',
   COMPLETED = 'COMPLETED',
   CANCELLED = 'CANCELLED',
 }

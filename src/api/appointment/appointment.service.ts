@@ -40,7 +40,7 @@ export class AppointmentService {
             where: { id: dto.doctor_id },
         });
         const patient = await this.patientRepository.findOne({
-            where: { user: {} },
+            where: { user: { id: patientId } },
             relations: ["user"],
         });
         const slot = await this.workScheduleDetailRepository.findOne({
@@ -59,12 +59,10 @@ export class AppointmentService {
             doctor,
             patient,
             schedule_detail: slot,
-            appointment_date: dto.appointment_date,
+            appointment_date: new Date(), // thời điểm đặt lịch
+            scheduled_date: slot.slot_start, // ngày khám
             reason: dto.reason,
-            session:
-                slot.slot_start.getHours() < 12
-                    ? Session.MORNING
-                    : Session.AFTERNOON,
+            session: slot.slot_start.getHours() < 12 ? Session.MORNING : Session.AFTERNOON,
             status: AppointmentStatus.PENDING,
         });
         await this.appointmentRepository.save(appointment);
@@ -110,12 +108,10 @@ export class AppointmentService {
             doctor,
             patient,
             schedule_detail: slot,
-            appointment_date: dto.appointment_date,
+            appointment_date: new Date(),
+            scheduled_date: slot.slot_start,
             reason: dto.reason,
-            session:
-                slot.slot_start.getHours() < 12
-                    ? Session.MORNING
-                    : Session.AFTERNOON,
+            session: slot.slot_start.getHours() < 12 ? Session.MORNING : Session.AFTERNOON,
             status: AppointmentStatus.PENDING,
         });
         await this.appointmentRepository.save(appointment);
