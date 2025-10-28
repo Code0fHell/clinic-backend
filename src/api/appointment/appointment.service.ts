@@ -144,4 +144,26 @@ export class AppointmentService {
             order: { appointment_date: "ASC" },
         });
     }
+
+    async updateAppointmentStatus(appointmentId: string, status: AppointmentStatus) {
+        try {
+            const appointment = await this.appointmentRepository.findOne({
+                where: { id: appointmentId}
+            })
+
+            if (!appointment) {
+                throw new Error("Appointment not found");
+            }
+            appointment.status = status;
+            await this.appointmentRepository.save(appointment);
+
+            return {
+                message: "Appointment status updated", status: appointment.status
+            }
+        } catch (error) {
+            return {
+                message: "Failed to update appointment status", error: error.message,
+            }
+        }
+    }
 }
