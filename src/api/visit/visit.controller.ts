@@ -1,4 +1,4 @@
-import { Controller, Post, Body, HttpCode, HttpStatus, UseGuards } from '@nestjs/common';
+import { Controller, Post, Body, HttpCode, HttpStatus, UseGuards, Get } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { VisitService } from './visit.service';
 import { CreateVisitDto } from './dto/create-visit.dto';
@@ -14,6 +14,19 @@ import { UserRole } from '../../shared/enums/user-role.enum';
 @Controller('api/v1/visit')
 export class VisitController {
     constructor(private readonly visitService: VisitService) { }
+
+
+    @Get('queue')
+    @HttpCode(HttpStatus.OK)
+    @ApiOperation({ summary: 'Lấy ra danh sách thăm khám thực tế trong ngày (ưu tiên bệnh nhân đã đặt lịch)' })
+    @ApiResponse({
+        status: 200,
+        description: 'Danh sách visit trong ngày',
+        type: [Visit]
+    })
+    async getTodayQueue() {
+        return this.visitService.getTodayQueue();
+    }
 
     @Post('create')
     @HttpCode(HttpStatus.CREATED)

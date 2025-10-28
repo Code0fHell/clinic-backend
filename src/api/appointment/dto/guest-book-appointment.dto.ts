@@ -42,5 +42,8 @@ export class GuestBookAppointmentDto {
 
     @IsDateString()
     @ApiProperty()
-    appointment_date: string;
+    appointment_date: Date;
+
+    @IsDateString()
+    scheduled_date: Date;
 }
