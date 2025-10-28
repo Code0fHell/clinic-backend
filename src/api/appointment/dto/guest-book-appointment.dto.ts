@@ -14,7 +14,7 @@ export class GuestBookAppointmentDto {
 
     @IsString()
     @IsNotEmpty()
-    @ApiProperty({enum: Gender})
+    @ApiProperty({ enum: Gender })
     gender: Gender;
 
     @IsString()

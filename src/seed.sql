@@ -27,12 +27,14 @@ CREATE TABLE IF NOT EXISTS `user` (
 CREATE TABLE IF NOT EXISTS `staff` (
   `id` CHAR(36) PRIMARY KEY,
   `user_id` CHAR(36) NOT NULL UNIQUE,
+  `room_id` CHAR(36) NULL,
   `department` VARCHAR(255),
   `position` VARCHAR(255),
   `license_number` VARCHAR(100),
   `doctor_type` ENUM('CLINICAL','DIAGNOSTIC','LAB') NULL,
   `is_available` BOOLEAN DEFAULT TRUE,
   FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON DELETE CASCADE
+  FOREIGN KEY (`room_id`) REFERENCES `room`(`id`)
 ) ENGINE=InnoDB;
 
 -- 3. PATIENT (composition -> user)
@@ -96,6 +98,7 @@ CREATE TABLE IF NOT EXISTS `appointment` (
   `patient_id` CHAR(36),
   `schedule_detail_id` CHAR(36) NULL,
   `appointment_date` DATETIME,
+  `reason` varchar(500),
   `session` ENUM('MORNING','AFTERNOON'),
   `status` ENUM('CANCELLED','CHECKED_IN','COMPLETED'),
   FOREIGN KEY (`doctor_id`) REFERENCES `staff`(`id`),
