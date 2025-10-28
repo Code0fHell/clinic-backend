@@ -6,6 +6,7 @@ import {
     Body,
     Req,
     UseGuards,
+    Put,
 } from "@nestjs/common";
 import { AppointmentService } from "./appointment.service";
 import { ApiTags, ApiBearerAuth, ApiOperation } from "@nestjs/swagger";
@@ -14,6 +15,7 @@ import { GuestBookAppointmentDto } from "./dto/guest-book-appointment.dto";
 import { JwtAuthGuard } from "src/common/guards/jwt-auth.guard";
 import { RolesGuard } from "src/common/guards/roles.guard";
 import { Roles } from "src/common/guards/roles.decorator";
+import { AppointmentStatus } from "src/shared/enums/appointment-status.enum";
 
 @ApiTags("appointment")
 @ApiBearerAuth()
@@ -52,5 +54,11 @@ export class AppointmentController {
     @ApiOperation({ summary: "Get today's appointments" })
     async getTodayAppointments() {
     return this.appointmentService.getTodayAppointments();
+    }
+
+    @Put(":id/status") // API cập nhật trạng thái cuộc hẹn
+    @ApiOperation( { summary: "Update appointment status"})
+    async updateAppointmentStatus(@Param("id") appointmentId: string, @Body("appointment_status") appointmentStatus: AppointmentStatus) {
+        return this.appointmentService.updateAppointmentStatus(appointmentId, appointmentStatus);
     }
 }
