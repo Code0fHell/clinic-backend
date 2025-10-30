@@ -1,3 +1,5 @@
+-- drop database clinic_management;
+
 CREATE DATABASE IF NOT EXISTS clinic_management;
 USE clinic_management;
 
@@ -25,12 +27,14 @@ CREATE TABLE IF NOT EXISTS `user` (
 CREATE TABLE IF NOT EXISTS `staff` (
   `id` CHAR(36) PRIMARY KEY,
   `user_id` CHAR(36) NOT NULL UNIQUE,
+  `room_id` CHAR(36) NULL,
   `department` VARCHAR(255),
   `position` VARCHAR(255),
   `license_number` VARCHAR(100),
   `doctor_type` ENUM('CLINICAL','DIAGNOSTIC','LAB') NULL,
   `is_available` BOOLEAN DEFAULT TRUE,
   FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON DELETE CASCADE
+  FOREIGN KEY (`room_id`) REFERENCES `room`(`id`)
 ) ENGINE=InnoDB;
 
 -- 3. PATIENT (composition -> user)
@@ -94,6 +98,7 @@ CREATE TABLE IF NOT EXISTS `appointment` (
   `patient_id` CHAR(36),
   `schedule_detail_id` CHAR(36) NULL,
   `appointment_date` DATETIME,
+  `reason` varchar(500),
   `session` ENUM('MORNING','AFTERNOON'),
   `status` ENUM('CANCELLED','CHECKED_IN','COMPLETED'),
   FOREIGN KEY (`doctor_id`) REFERENCES `staff`(`id`),
@@ -228,6 +233,8 @@ CREATE TABLE IF NOT EXISTS `prescription` (
   `medical_record_id` CHAR(36) NULL,
   `conclusion` TEXT,
   `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  `return_date` DATE NULL,
+  `total_fee` DECIMAL(12,2),
   FOREIGN KEY (`patient_id`) REFERENCES `patient`(`id`),
   FOREIGN KEY (`doctor_id`) REFERENCES `staff`(`id`),
   FOREIGN KEY (`medical_record_id`) REFERENCES `medical_record`(`id`) ON DELETE SET NULL
@@ -259,7 +266,7 @@ CREATE TABLE IF NOT EXISTS `bill` (
   FOREIGN KEY (`doctor_id`) REFERENCES `staff`(`id`),
   FOREIGN KEY (`prescription_id`) REFERENCES `prescription`(`id`),
   FOREIGN KEY (`medical_ticket_id`) REFERENCES `medical_ticket`(`id`),
-  FOREIGN KEY (`indication_ticket_id`) REFERENCES `indication_ticket_id`(`id`)
+  FOREIGN KEY (`indication_ticket_id`) REFERENCES `indication_ticket`(`id`)
 ) ENGINE=InnoDB;
 
 -- 20. PAYMENT

@@ -1,12 +1,13 @@
-import { Controller, Put, UseGuards, UseInterceptors, UploadedFile, Req, Get, Param, Body } from '@nestjs/common';
+import { Controller, Put, UseGuards, UseInterceptors, UploadedFile, Req, Get, Param, Body, BadRequestException } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
-import { ApiTags, ApiBearerAuth, ApiOperation, ApiConsumes } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { UserService } from './user.service';
-import { extname } from 'path';
+import { extname, join } from 'path';
 import { UpdateProfileDto } from './dto/update-profile.dto';
-import { File } from 'multer';
+// import { File } from 'multer';
+import { existsSync, mkdirSync } from 'fs';
 
 @ApiTags('user')
 @ApiBearerAuth()
@@ -29,29 +30,56 @@ export class UserController {
   }
 
   @Put('avatar')
-  @ApiOperation({ summary: 'Upload avatar image' })
+  @ApiOperation({ summary: 'Upload user avatar' })
   @ApiConsumes('multipart/form-data')
-  @UseInterceptors(FileInterceptor('file', {
-    storage: diskStorage({
-      destination: './uploads/avatar',
-      filename: (req, file, cb) => {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-        cb(null, uniqueSuffix + extname(file.originalname));
+  @ApiBody({
+    description: 'Upload avatar image file',
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+          description: 'Ảnh đại diện (jpg, png, webp)',
+        },
       },
-    }),
-    fileFilter: (req, file, cb) => {
-      if (!file.mimetype.match(/\/(jpg|jpeg|png)$/)) {
-        cb(new Error('Only image files are allowed!'), false);
-      } else {
-        cb(null, true);
-      }
     },
-    limits: { fileSize: 2 * 1024 * 1024 }, // 2MB
-  }))
-  async uploadAvatar(@Req() req, @UploadedFile() file: File) {
+  })
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: diskStorage({
+        destination: (req, file, cb) => {
+          const uploadPath = join(__dirname, '../../../uploads/avatar');
+          if (!existsSync(uploadPath)) mkdirSync(uploadPath, { recursive: true });
+          cb(null, uploadPath);
+        },
+        filename: (req, file, cb) => {
+          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+          cb(null, uniqueSuffix + extname(file.originalname));
+        },
+      }),
+      fileFilter: (req, file, cb) => {
+        if (!file.mimetype.match(/\/(jpg|jpeg|png|webp)$/)) {
+          return cb(new BadRequestException('Chỉ chấp nhận file ảnh!'), false);
+        }
+        cb(null, true);
+      },
+      limits: { fileSize: 2 * 1024 * 1024 }, // 2MB
+    }),
+  )
+  async uploadAvatar(@Req() req, @UploadedFile() file: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException('Không có file được tải lên');
+    }
+
     const userId = req.user.userId;
-    const avatarPath = `/uploads/avatar/${file.filename}`;
-    await this.userService.updateProfile(userId, { avatar: avatarPath });
-    return { message: 'Avatar uploaded', avatar: avatarPath };
+    const avatarUrl = `/static/avatar/${file.filename}`;
+
+    await this.userService.updateProfile(userId, { avatar: avatarUrl });
+
+    return {
+      message: 'Cập nhật ảnh đại diện thành công!',
+      avatar: avatarUrl,
+    };
   }
 }

@@ -3,6 +3,7 @@ import { User } from './user.entity';
 import { WorkSchedule } from './work-schedule.entity';
 import { DoctorType } from '../enums/doctor-type.enum';
 import { MedicalRecord } from './medical-record.entity';
+import { Room } from './room.entity';
 
 @Entity()
 export class Staff {
@@ -33,4 +34,8 @@ export class Staff {
 
   @OneToMany(() => MedicalRecord, (mr) => mr.doctor)
   medicalRecords: MedicalRecord[];
+
+  @OneToOne(() => Room, { nullable: true })
+  @JoinColumn({ name: 'room_id' })
+  room: Room;
 }

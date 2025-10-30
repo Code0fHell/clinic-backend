@@ -6,15 +6,22 @@ import {
     Body,
     Req,
     UseGuards,
+    Put,
+    HttpCode,
+    HttpStatus,
 } from "@nestjs/common";
 import { AppointmentService } from "./appointment.service";
-import { ApiTags, ApiBearerAuth, ApiOperation } from "@nestjs/swagger";
-import { AuthGuard } from "@nestjs/passport";
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse } from "@nestjs/swagger";
 import { BookAppointmentDto } from "./dto/book-appointment.dto";
+import { GuestBookAppointmentDto } from "./dto/guest-book-appointment.dto";
+import { JwtAuthGuard } from "src/common/guards/jwt-auth.guard";
+import { RolesGuard } from "src/common/guards/roles.guard";
+import { Roles } from "src/common/guards/roles.decorator";
+import { AppointmentStatus } from "src/shared/enums/appointment-status.enum";
+import { Appointment } from "src/shared/entities/appointment.entity";
 
 @ApiTags("appointment")
 @ApiBearerAuth()
-@UseGuards(AuthGuard("jwt"))
 @Controller("api/v1/appointment")
 export class AppointmentController {
     constructor(private readonly appointmentService: AppointmentService) {}
@@ -25,10 +32,48 @@ export class AppointmentController {
         return this.appointmentService.getAvailableSlots(scheduleId);
     }
 
-    @Post("book")
+    @Post("book") // Api dành cho bệnh nhân đã đăng nhập
+    @Roles("PATIENT")
+    @UseGuards(JwtAuthGuard, RolesGuard)
     @ApiOperation({ summary: "Book an appointment" })
     async bookAppointment(@Req() req, @Body() dto: BookAppointmentDto) {
         const patientId = req.user.userId;
         return this.appointmentService.bookAppointment(patientId, dto);
+    }
+
+    @Post("guest-book") // Api dành cho khách hàng không đăng nhập
+    @ApiOperation({ summary: "Guest book an appointment (no login required)" })
+    async guestBookAppointment(@Body() dto: GuestBookAppointmentDto) {
+        return this.appointmentService.guestBookAppointment(dto);
+    }
+
+    @Get("all") // API lấy tất cả cuộc hẹn
+    @ApiOperation({ summary: "Get all appointments" })
+    async getAllAppointments() {
+    return this.appointmentService.getAllAppointments();
+    }
+
+    @Get("today") // API lấy ra cuộc hẹn trong ngày dành cho bác sĩ
+    @ApiOperation({ summary: "Get today's appointments" })
+    async getTodayAppointments() {
+    return this.appointmentService.getTodayAppointments();
+    }
+
+    @Get("week")
+    @HttpCode(HttpStatus.OK)
+    @ApiOperation({ summary: "Lấy danh sách lịch hẹn trong tuần hiện tại (Thứ 2 → Thứ 6)" })
+    @ApiResponse({
+        status: 200,
+        description: "Danh sách lịch hẹn trong tuần",
+        type: [Appointment],
+    })
+    async getAppointmentsThisWeek() {
+        return this.appointmentService.getAppointmentsThisWeek();
+    }
+
+    @Put(":id/status") // API cập nhật trạng thái cuộc hẹn
+    @ApiOperation( { summary: "Update appointment status"})
+    async updateAppointmentStatus(@Param("id") appointmentId: string, @Body("appointment_status") appointmentStatus: AppointmentStatus) {
+        return this.appointmentService.updateAppointmentStatus(appointmentId, appointmentStatus);
     }
 }

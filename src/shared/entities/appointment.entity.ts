@@ -23,7 +23,13 @@ export class Appointment {
   schedule_detail: WorkScheduleDetail;
 
   @Column({ type: 'datetime' })
-  appointment_date: Date;
+  appointment_date: Date; // Thời điểm đặt lịch
+
+  @Column({ type: 'datetime' })
+  scheduled_date: Date; // Thời điểm khám thực tế
+
+  @Column( {type: 'varchar', length: 500, nullable: false})
+  reason: string;
 
   @Column({ type: 'enum', enum: Session })
   session: Session;
