@@ -122,7 +122,7 @@ export class AppointmentService {
     // Lấy ra tất cả cuộc hẹn
     async getAllAppointments() {
     return this.appointmentRepository.find({
-        relations: ["doctor", "patient", "schedule_detail"],
+        relations: ["doctor", "doctor.user", "patient", "schedule_detail"],
         order: { appointment_date: "ASC" },
     });
     }
@@ -136,7 +136,7 @@ export class AppointmentService {
             where: {
             appointment_date: Between(startOfDay, endOfDay),
             },
-            relations: ["doctor", "patient", "schedule_detail"],
+            relations: ["doctor", "doctor.user", "patient", "schedule_detail"],
             order: { appointment_date: "ASC" },
         });
     }
@@ -161,5 +161,19 @@ export class AppointmentService {
                 message: "Failed to update appointment status", error: error.message,
             }
         }
+    }
+    
+    // Lấy lịch hẹn trong tuần
+    async getAppointmentsThisWeek() {
+        const startOfWeekDate = dayjs().startOf("week").add(1, "day").toDate(); // Thứ 2
+        const endOfWeekDate = dayjs().endOf("week").subtract(1, "day").toDate(); // Thứ 6
+
+        return this.appointmentRepository.find({
+            where: {
+                scheduled_date: Between(startOfWeekDate, endOfWeekDate),
+            },
+            relations: ["doctor", "doctor.user", "patient", "schedule_detail"],
+            order: { scheduled_date: "ASC" },
+        });
     }
 }
