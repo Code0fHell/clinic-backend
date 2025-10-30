@@ -13,6 +13,7 @@ import { Staff } from "../../shared/entities/staff.entity";
 import { Repository } from "typeorm";
 import { CreateIndicationTicketDto } from "./dto/create-indication-ticket.dto";
 import { DoctorType } from "src/shared/enums/doctor-type.enum";
+import { MedicalRecord } from "../../shared/entities/medical-record.entity";
 
 @Injectable()
 export class IndicationService {
@@ -28,30 +29,49 @@ export class IndicationService {
         @InjectRepository(Patient)
         private readonly patientRepository: Repository<Patient>,
         @InjectRepository(Staff)
-        private readonly staffRepository: Repository<Staff>
+        private readonly staffRepository: Repository<Staff>,
+        @InjectRepository(MedicalRecord)
+        private readonly medicalRecordRepository: Repository<MedicalRecord>
     ) {}
 
-    async createIndicationTicket(userId: string, dto: CreateIndicationTicketDto) {
+    async createIndicationTicket(
+        userId: string,
+        dto: CreateIndicationTicketDto
+    ) {
         // Tìm bác sĩ theo user_id
         const doctor = await this.staffRepository.findOne({
             where: { user: { id: userId } },
-            relations: ['user'],
+            relations: ["user"],
         });
 
-        if (!doctor) throw new NotFoundException('Doctor not found');
+        if (!doctor) throw new NotFoundException("Doctor not found");
         if (doctor.doctor_type !== DoctorType.CLINICAL)
-            throw new ForbiddenException('Only clinical doctors can create indication tickets');
+            throw new ForbiddenException(
+                "Only clinical doctors can create indication tickets"
+            );
 
         const medicalTicket = await this.medicalTicketRepository.findOne({
             where: { id: dto.medical_ticket_id },
         });
-        console.log('medicalTicket: ', medicalTicket);
         const patient = await this.patientRepository.findOne({
             where: { id: dto.patient_id },
         });
-        console.log('patient: ', patient);
         if (!medicalTicket || !patient)
             throw new NotFoundException("Medical ticket or patient not found");
+
+        // Tạo medical-record nếu chưa có
+        let medicalRecord = await this.medicalRecordRepository.findOne({
+            where: { patient: { id: patient.id } },
+        });
+        if (!medicalRecord) {
+            medicalRecord = this.medicalRecordRepository.create({
+                patient: patient,
+                doctor: doctor,
+                created_at: new Date(),
+                updated_at: new Date(),
+            });
+            await this.medicalRecordRepository.save(medicalRecord);
+        }
 
         const indicationTicket = this.indicationTicketRepository.create({
             medical_ticket: medicalTicket,
@@ -63,7 +83,9 @@ export class IndicationService {
         });
         await this.indicationTicketRepository.save(indicationTicket);
 
-        const dateStr = indicationTicket.indication_date.toISOString().replace(/[:.]/g, '-');
+        const dateStr = indicationTicket.indication_date
+            .toISOString()
+            .replace(/[:.]/g, "-");
         indicationTicket.barcode = `CD-${dateStr}-${indicationTicket.id}`;
         await this.indicationTicketRepository.save(indicationTicket);
 
@@ -123,7 +145,7 @@ export class IndicationService {
             indication_date: indicationTicket.indication_date,
             service_items: serviceItems,
             total_fee: indicationTicket.total_fee,
+            medical_record_id: medicalRecord.id,
         };
     }
-
 }
