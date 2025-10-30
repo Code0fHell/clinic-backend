@@ -58,7 +58,7 @@ import { PrescriptionDetailModule } from "./api/prescription-detail/prescription
         BillModule,
         ImagingModule,
         PaymentModule,
-        MedicalRecordModule
+        MedicalRecordModule,
         PrescriptionModule,
         PrescriptionDetailModule
     ],
