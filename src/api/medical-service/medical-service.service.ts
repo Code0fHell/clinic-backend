@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { MedicalService } from '../../shared/entities/medical-service.entity';
 import { Room } from '../../shared/entities/room.entity';
-import { Repository } from 'typeorm';
+import { Repository, Like } from 'typeorm';
 import { CreateMedicalServiceDto } from './dto/create-medical-service.dto';
 import { UpdateMedicalServiceDto } from './dto/update-medical-service.dto';
 
@@ -52,5 +52,13 @@ export class MedicalServiceService {
 
   async findById(id: string) {
     return this.medicalServiceRepository.findOne({ where: { id }, relations: ['room'] });
+  }
+  
+  // Tìm kiếm dịch vụ y tế theo tên
+  async searchByName(q: string) {
+    return this.medicalServiceRepository.find({
+      where: { service_name: Like(`%${q}%`) },
+      take: 10,
+    });
   }
 }
