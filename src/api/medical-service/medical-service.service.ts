@@ -59,6 +59,7 @@ export class MedicalServiceService {
     return this.medicalServiceRepository.find({
       where: { service_name: Like(`%${q}%`) },
       take: 10,
+      relations: ['room'],
     });
   }
 }
