@@ -104,10 +104,31 @@ export class VisitService {
             .createQueryBuilder('visit')
             .leftJoinAndSelect('visit.patient', 'patient')
             .leftJoinAndSelect('visit.doctor', 'doctor')
+            .leftJoinAndSelect('doctor.user', 'user')
             .leftJoinAndSelect('visit.appointment', 'appointment')
             .where('visit.checked_in_at BETWEEN :start AND :end', { start: startOfDay, end: endOfDay })
             .orderBy('CASE WHEN visit.appointment_id IS NOT NULL THEN 0 ELSE 1 END', 'ASC')
             .addOrderBy('visit.queue_number', 'ASC')
             .getMany();
+    }
+
+    // Cập nhật trạng thái visit
+    async updateVisitStatus(visitId: string, newStatus: VisitStatus) {
+        const visit = await this.visitRepository.findOne({
+            where: { id: visitId },
+            relations: ["patient", "doctor"],
+        });
+
+        if (!visit) {
+        throw new NotFoundException(`Visit với id ${visitId} không tồn tại`);
+        }
+
+        // Cập nhật trạng thái visit
+        visit.visit_status = newStatus;
+        await this.visitRepository.save(visit);
+
+        return {
+            message: "Trạng thái thăm khám đã được cập nhật!", status: visit.visit_status
+        }
     }
 }
