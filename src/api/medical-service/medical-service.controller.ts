@@ -1,4 +1,4 @@
-import { Controller, Post, Put, Delete, Get, Param, Body, UseGuards } from '@nestjs/common';
+import { Controller, Post, Put, Delete, Get, Param, Body, UseGuards, Query } from '@nestjs/common';
 import { MedicalServiceService } from './medical-service.service';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
@@ -45,5 +45,10 @@ export class MedicalServiceController {
   @ApiOperation({ summary: 'Get medical service by ID' })
   async findById(@Param('id') id: string) {
     return this.medicalServiceService.findById(id);
+  }
+
+  @Get('search')
+  async search(@Query('q') q: string) {
+    return this.medicalServiceService.searchByName(q);
   }
 }
