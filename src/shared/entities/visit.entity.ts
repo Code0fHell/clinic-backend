@@ -1,10 +1,11 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, OneToMany } from 'typeorm';
 import { Patient } from './patient.entity';
 import { Staff } from './staff.entity';
 import { VisitType } from '../enums/visit-type.enum';
 import { VisitStatus } from '../enums/visit-status.enum';
 import { MedicalRecord } from './medical-record.entity';
 import { Appointment } from './appointment.entity';
+import { MedicalTicket } from './medical-ticket.entity';
 
 @Entity()
 export class Visit {
@@ -44,4 +45,8 @@ export class Visit {
   })
   @JoinColumn({ name: 'medical_record_id' })
   medicalRecord?: MedicalRecord | null;
+
+  @OneToMany(() => MedicalTicket, (medicalTicket) => medicalTicket.visit_id)
+  @JoinColumn( {name: 'medical_ticket_id'})
+  medicalTickets: MedicalTicket[];
 }

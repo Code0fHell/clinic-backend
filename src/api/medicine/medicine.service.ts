@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Like, Repository } from 'typeorm';
 import { CreateMedicineDto } from './dto/create-medicine.dto';
 import { UpdateMedicineDto } from './dto/update-medicine.dto';
 import { Medicine } from '../../shared/entities/medicine.entity';
@@ -84,5 +84,12 @@ export class MedicineService {
       message: 'Xóa thuốc thành công',
       data: medicine,
     }
+  }
+  // Tìm kiếm thuốc theo tên
+  async searchByName(q: string) {
+    return this.medicineRepository.find({
+      where: { name: Like(`%${q}%`) },
+      take: 10,
+    });
   }
 }
