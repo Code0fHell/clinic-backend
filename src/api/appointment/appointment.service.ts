@@ -136,7 +136,7 @@ export class AppointmentService {
             where: {
             appointment_date: Between(startOfDay, endOfDay),
             },
-            relations: ["doctor", "doctor.user", "patient", "schedule_detail"],
+            relations: ["doctor", "doctor.user", "patient", "schedule_detail", "patient.user"],
             order: { appointment_date: "ASC" },
         });
     }
