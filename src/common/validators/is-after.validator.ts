@@ -13,7 +13,7 @@ export function IsAfterConstraint(property: string, validationOptions?: Validati
       constraints: [property],
       options: validationOptions,
       validator: {
-        validate(value: any, args: ValidationArguments) {
+        validate(value: unknown, args: ValidationArguments) {
           const [relatedPropertyName] = args.constraints;
           const relatedValue = (args.object as any)[relatedPropertyName];
           if (!value || !relatedValue) return true;
