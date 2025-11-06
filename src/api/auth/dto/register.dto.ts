@@ -62,13 +62,4 @@ export class RegisterDto {
   @IsString({ message: 'Địa chỉ phải là chuỗi' })
   @MaxLength(255, { message: 'Địa chỉ quá dài' })
   address?: string;
-
-  @ApiProperty({
-    enum: UserRole,
-    example: UserRole.DOCTOR,
-    description: 'Vai trò của người dùng (ví dụ: DOCTOR, OWNER, STAFF, ...)',
-  })
-  @IsNotEmpty({ message: 'Vai trò người dùng không được để trống' })
-  @IsEnum(UserRole, { message: 'Vai trò người dùng không hợp lệ' })
-  user_role: UserRole;
 }

@@ -29,20 +29,17 @@ export class AuthService {
       registerDto.email,
     );
     if (existing)
-      throw new ConflictException('Username or email already exists');
+      throw new ConflictException('Tên đăng nhập hoặc email đã tồn tại!');
 
     const hashedPassword = await bcrypt.hash(registerDto.password, 10);
     const user = await this.userService.createUser({
       ...registerDto,
       password: hashedPassword,
+      user_role: UserRole.PATIENT,
     });
 
-    if(registerDto.user_role == UserRole.PATIENT) {
-      const patient = this.patientRepository.create({
-        user,
-      });
-      await this.patientRepository.save(patient);
-    }
+    const patient = this.patientRepository.create({ user });
+    await this.patientRepository.save(patient);
 
     return { message: 'Registration successful', userId: user.id };
   }
@@ -50,10 +47,10 @@ export class AuthService {
   // Đăng nhập và trả về access_token
   async login(loginDto: LoginDto) {
       const user = await this.userService.findByUsername(loginDto.username);
-      if (!user) throw new UnauthorizedException('Invalid credentials');
+      if (!user) throw new UnauthorizedException('Tên đăng nhập không tồn tại!');
 
       const isMatch = await bcrypt.compare(loginDto.password, user.password);
-      if (!isMatch) throw new UnauthorizedException('Invalid credentials');
+      if (!isMatch) throw new UnauthorizedException('Mật khẩu không chính xác!');
 
       const payload = {
         sub: user.id,
@@ -63,7 +60,7 @@ export class AuthService {
       const token = this.jwtService.sign(payload);
 
       return {
-        message: 'Login successful',
+        message: 'Đăng nhập thành công!',
         token,
         user: {
           id: user.id,
