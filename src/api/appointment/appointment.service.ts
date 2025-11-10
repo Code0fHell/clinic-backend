@@ -25,7 +25,7 @@ export class AppointmentService {
         private readonly appointmentRepository: Repository<Appointment>,
         @InjectRepository(User)
         private readonly userRepository: Repository<User>
-    ) {}
+    ) { }
 
     async getAvailableSlots(scheduleId: string) {
         return this.workScheduleDetailRepository.find({
@@ -121,10 +121,10 @@ export class AppointmentService {
 
     // Lấy ra tất cả cuộc hẹn
     async getAllAppointments() {
-    return this.appointmentRepository.find({
-        relations: ["doctor", "patient", "schedule_detail"],
-        order: { appointment_date: "ASC" },
-    });
+        return this.appointmentRepository.find({
+            relations: ["doctor", "patient", "schedule_detail"],
+            order: { appointment_date: "ASC" },
+        });
     }
 
     // Lấy ra cuộc hẹn trong ngày
@@ -134,9 +134,9 @@ export class AppointmentService {
 
         return this.appointmentRepository.find({
             where: {
-            appointment_date: Between(startOfDay, endOfDay),
+                appointment_date: Between(startOfDay, endOfDay),
             },
-            relations: ["doctor", "patient", "schedule_detail"],
+            relations: ["doctor.user", "patient.user", "schedule_detail"],
             order: { appointment_date: "ASC" },
         });
     }
@@ -144,7 +144,7 @@ export class AppointmentService {
     async updateAppointmentStatus(appointmentId: string, status: AppointmentStatus) {
         try {
             const appointment = await this.appointmentRepository.findOne({
-                where: { id: appointmentId}
+                where: { id: appointmentId }
             })
 
             if (!appointment) {
