@@ -25,7 +25,7 @@ export class AppointmentService {
         private readonly appointmentRepository: Repository<Appointment>,
         @InjectRepository(User)
         private readonly userRepository: Repository<User>
-    ) {}
+    ) { }
 
     async getAvailableSlots(scheduleId: string) {
         return this.workScheduleDetailRepository.find({
@@ -134,7 +134,7 @@ export class AppointmentService {
 
         return this.appointmentRepository.find({
             where: {
-            appointment_date: Between(startOfDay, endOfDay),
+                appointment_date: Between(startOfDay, endOfDay),
             },
             relations: ["doctor", "doctor.user", "patient", "schedule_detail", "patient.user"],
             order: { appointment_date: "ASC" },
@@ -144,7 +144,7 @@ export class AppointmentService {
     async updateAppointmentStatus(appointmentId: string, status: AppointmentStatus) {
         try {
             const appointment = await this.appointmentRepository.findOne({
-                where: { id: appointmentId}
+                where: { id: appointmentId }
             })
 
             if (!appointment) {

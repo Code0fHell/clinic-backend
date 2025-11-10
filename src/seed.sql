@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS `staff` (
   `license_number` VARCHAR(100),
   `doctor_type` ENUM('CLINICAL','DIAGNOSTIC','LAB') NULL,
   `is_available` BOOLEAN DEFAULT TRUE,
-  FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON DELETE CASCADE
+  FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON DELETE CASCADE,
   FOREIGN KEY (`room_id`) REFERENCES `room`(`id`)
 ) ENGINE=InnoDB;
 
