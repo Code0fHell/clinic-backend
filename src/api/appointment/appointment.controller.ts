@@ -7,15 +7,18 @@ import {
     Req,
     UseGuards,
     Put,
+    HttpCode,
+    HttpStatus,
 } from "@nestjs/common";
 import { AppointmentService } from "./appointment.service";
-import { ApiTags, ApiBearerAuth, ApiOperation } from "@nestjs/swagger";
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse } from "@nestjs/swagger";
 import { BookAppointmentDto } from "./dto/book-appointment.dto";
 import { GuestBookAppointmentDto } from "./dto/guest-book-appointment.dto";
 import { JwtAuthGuard } from "src/common/guards/jwt-auth.guard";
 import { RolesGuard } from "src/common/guards/roles.guard";
 import { Roles } from "src/common/guards/roles.decorator";
 import { AppointmentStatus } from "src/shared/enums/appointment-status.enum";
+import { Appointment } from "src/shared/entities/appointment.entity";
 
 @ApiTags("appointment")
 @ApiBearerAuth()
@@ -54,6 +57,18 @@ export class AppointmentController {
     @ApiOperation({ summary: "Get today's appointments" })
     async getTodayAppointments() {
     return this.appointmentService.getTodayAppointments();
+    }
+
+    @Get("week")
+    @HttpCode(HttpStatus.OK)
+    @ApiOperation({ summary: "Lấy danh sách lịch hẹn trong tuần hiện tại (Thứ 2 → Thứ 6)" })
+    @ApiResponse({
+        status: 200,
+        description: "Danh sách lịch hẹn trong tuần",
+        type: [Appointment],
+    })
+    async getAppointmentsThisWeek() {
+        return this.appointmentService.getAppointmentsThisWeek();
     }
 
     @Put(":id/status") // API cập nhật trạng thái cuộc hẹn

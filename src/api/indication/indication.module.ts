@@ -9,9 +9,10 @@ import { ServiceIndication } from "src/shared/entities/service-indication.entity
 import { MedicalTicket } from "src/shared/entities/medical-ticket.entity";
 import { Staff } from "src/shared/entities/staff.entity";
 import { Patient } from "src/shared/entities/patient.entity";
+import { MedicalRecord } from "src/shared/entities/medical-record.entity";
 
 @Module({
-    imports: [TypeOrmModule.forFeature([IndicationTicket, MedicalService, ServiceIndication, MedicalTicket, Patient, Staff ])],
+    imports: [TypeOrmModule.forFeature([IndicationTicket, MedicalService, ServiceIndication, MedicalTicket, Patient, Staff, MedicalRecord ])],
     providers: [IndicationService, RolesGuard],
     controllers: [IndicationController],
     exports: [IndicationService],

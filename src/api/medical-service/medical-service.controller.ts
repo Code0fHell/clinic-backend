@@ -1,11 +1,12 @@
-import { Controller, Post, Put, Delete, Get, Param, Body, UseGuards } from '@nestjs/common';
+import { Controller, Post, Put, Delete, Get, Param, Body, UseGuards, Query } from '@nestjs/common';
 import { MedicalServiceService } from './medical-service.service';
-import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/guards/roles.decorator';
 import { CreateMedicalServiceDto } from './dto/create-medical-service.dto';
 import { UpdateMedicalServiceDto } from './dto/update-medical-service.dto';
+import { MedicalService } from '../../shared/entities/medical-service.entity';
 
 @ApiTags('medical-service')
 @ApiBearerAuth()
@@ -37,13 +38,30 @@ export class MedicalServiceController {
 
   @Get()
   @ApiOperation({ summary: 'List all medical services' })
+  @ApiResponse({ status: 200, type: [MedicalService] })
   async findAll() {
-    return this.medicalServiceService.findAll();
+    const data = await this.medicalServiceService.findAll();
+    return { success: true, data };
+  }
+
+  @Get('search')
+  @ApiOperation({ summary: 'Search medical services by name' })
+  @ApiResponse({ status: 200, type: [MedicalService] })
+  async search(@Query('q') q: string) {
+    const data = await this.medicalServiceService.searchByName(q);
+    return {
+      success: true,
+      message: data.length ? 'Search results found' : 'No results found',
+      count: data.length,
+      data,
+    };
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get medical service by ID' })
+  @ApiResponse({ status: 200, type: MedicalService })
   async findById(@Param('id') id: string) {
-    return this.medicalServiceService.findById(id);
+    const service = await this.medicalServiceService.findById(id);
+    return { success: true, data: service };
   }
 }

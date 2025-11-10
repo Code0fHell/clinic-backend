@@ -1,13 +1,4 @@
-import { ApiPropertyOptional } from '@nestjs/swagger';
-import { RoomType } from '../../../shared/enums/room-type.enum';
+import { PartialType } from '@nestjs/swagger';
+import { CreateRoomDto } from './create-room.dto';
 
-export class UpdateRoomDto {
-  @ApiPropertyOptional()
-  room_name?: string;
-
-  @ApiPropertyOptional({ enum: RoomType })
-  room_type?: RoomType;
-
-  @ApiPropertyOptional()
-  floor?: number;
-}
+export class UpdateRoomDto extends PartialType(CreateRoomDto) {}

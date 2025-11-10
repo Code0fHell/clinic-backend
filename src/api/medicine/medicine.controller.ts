@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Put, Delete, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Put, Delete, UseGuards, Query } from '@nestjs/common';
 import { MedicineService } from './medicine.service';
 import { CreateMedicineDto } from './dto/create-medicine.dto';
 import { UpdateMedicineDto } from './dto/update-medicine.dto';
@@ -51,5 +51,11 @@ export class MedicineController {
   @Roles(UserRole.PHARMACIST, UserRole.OWNER)
   remove(@Param('id') id: string) {
     return this.medicineService.remove(id);
+  }
+
+  @Get('search')
+  @ApiOperation({ summary: 'Search medicines by name' })
+  findByName(@Query('q') q: string) {
+    return this.medicineService.searchByName(q);
   }
 }
