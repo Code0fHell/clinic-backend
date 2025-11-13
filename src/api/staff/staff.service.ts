@@ -17,8 +17,8 @@ export class StaffService {
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     @InjectRepository(WorkSchedule)
-    private readonly workScheduleRepository: Repository<WorkSchedule>,
-  ) {}
+    private readonly workScheduleRepository: Repository<WorkSchedule>
+  ) { }
 
   // Lấy ra tất cả nhân viên của phòng khám
   async findAll() {
@@ -80,7 +80,7 @@ export class StaffService {
   // Tìm bác sĩ theo loại
   async findDoctorsByType(type: DoctorType) {
     return this.staffRepository.find({
-      where: { doctor_type: type, is_available: true},
+      where: { doctor_type: type, is_available: true },
       relations: ['user'],
     })
   }
