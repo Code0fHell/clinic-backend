@@ -24,8 +24,8 @@ export class CreatePatientDto {
   @ApiProperty({
     example: '0912345678',
     description: 'Số điện thoại liên hệ của bệnh nhân',
+    required: false
   })
-  @IsNotEmpty({ message: 'Số điện thoại không được để trống' })
   @Matches(/^(0|\+84)(\d{9,10})$/, {
     message: 'Số điện thoại không hợp lệ',
   })
@@ -50,23 +50,23 @@ export class CreatePatientDto {
 
   @ApiProperty({ example: 'Nguyễn Văn B', required: false })
   @IsOptional()
-  @IsString({ message: 'Tên cha phải là chuỗi' })
-  father_name?: string;
+  @IsString({ message: 'Tên bố / mẹ phải là chuỗi' })
+  fatherORmother_name?: string;
 
-  @ApiProperty({ example: 'Trần Thị C', required: false })
-  @IsOptional()
-  @IsString({ message: 'Tên mẹ phải là chuỗi' })
-  mother_name?: string;
+  // @ApiProperty({ example: 'Trần Thị C', required: false })
+  // @IsOptional()
+  // @IsString({ message: 'Tên mẹ phải là chuỗi' })
+  // mother_name?: string;
 
   @ApiProperty({ example: '0987654321', required: false })
   @IsOptional()
-  @Matches(/^(0|\+84)(\d{9,10})$/, { message: 'Số điện thoại của cha không hợp lệ' })
-  father_phone?: string;
+  @Matches(/^(0|\+84)(\d{9,10})$/, { message: 'Số điện thoại của bố / mẹ không hợp lệ' })
+  fatherORmother_phone?: string;
 
-  @ApiProperty({ example: '0978123456', required: false })
-  @IsOptional()
-  @Matches(/^(0|\+84)(\d{9,10})$/, { message: 'Số điện thoại của mẹ không hợp lệ' })
-  mother_phone?: string;
+  // @ApiProperty({ example: '0978123456', required: false })
+  // @IsOptional()
+  // @Matches(/^(0|\+84)(\d{9,10})$/, { message: 'Số điện thoại của mẹ không hợp lệ' })
+  // mother_phone?: string;
 
   @ApiProperty({ example: 170, required: false, description: 'Chiều cao (cm)' })
   @IsOptional()
