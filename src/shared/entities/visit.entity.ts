@@ -39,6 +39,12 @@ export class Visit {
   @Column({ type: 'datetime', nullable: true })
   completed_at: Date;
 
+  @Column({ type: 'datetime' })
+  created_at: Date;
+
+  @Column({ default: false })
+  is_printed: boolean;
+
   @ManyToOne(() => MedicalRecord, (mr) => mr.visits, {
     nullable: true,
     onDelete: 'SET NULL',
@@ -47,6 +53,6 @@ export class Visit {
   medicalRecord?: MedicalRecord | null;
 
   @OneToMany(() => MedicalTicket, (medicalTicket) => medicalTicket.visit_id)
-  @JoinColumn( {name: 'medical_ticket_id'})
+  @JoinColumn({ name: 'medical_ticket_id' })
   medicalTickets: MedicalTicket[];
 }
