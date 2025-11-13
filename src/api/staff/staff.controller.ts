@@ -1,21 +1,25 @@
-import { Controller, Get, Param, UseGuards, Post, Body, Delete } from '@nestjs/common';
+import {
+  Controller, Get, Param, UseGuards, Post, Body, Delete, HttpCode,
+  HttpStatus
+} from '@nestjs/common';
 import { StaffService } from './staff.service';
-import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/guards/roles.decorator';
 import { CreateStaffDto } from './dto/create-staff.dto';
 import { AuthorizeDoctorDto } from './dto/authorize-doctor.dto';
 import { DoctorType } from 'src/shared/enums/doctor-type.enum';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+
 @ApiTags('staff')
 @ApiBearerAuth()
 @Controller('api/v1/staff')
 export class StaffController {
-  constructor(private readonly staffService: StaffService) {}
+  constructor(private readonly staffService: StaffService) { }
 
   // Lấy danh sách bác sĩ lâm sàng
   @Get('clinical-doctors')
-  @ApiOperation({ summary: 'Get all clinical doctors'})
+  @ApiOperation({ summary: 'Get all clinical doctors' })
   async getClinicalDoctors() {
     return this.staffService.findDoctorsByType(DoctorType.CLINICAL);
   }

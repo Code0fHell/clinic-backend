@@ -12,4 +12,4 @@ import { WorkSchedule } from 'src/shared/entities/work-schedule.entity';
   controllers: [StaffController],
   exports: [StaffService],
 })
-export class StaffModule {}
+export class StaffModule { }
