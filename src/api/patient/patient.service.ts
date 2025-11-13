@@ -7,9 +7,14 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Patient } from '../../shared/entities/patient.entity';
 import { User } from '../../shared/entities/user.entity';
+import { WorkScheduleDetail } from 'src/shared/entities/work-schedule-detail.entity';
+import { Staff } from '../../shared/entities/staff.entity';
+import { WorkSchedule } from 'src/shared/entities/work-schedule.entity';
+import { Between } from 'typeorm';
 import { CreatePatientDto } from './dto/create-patient.dto';
 import { LinkPatientAccountDto } from './dto/link-patient-account.dto';
 import { UserRole } from 'src/shared/enums/user-role.enum';
+import { UpdatePatientDto } from './dto/update-patient.dto';
 
 @Injectable()
 export class PatientService {
@@ -19,13 +24,27 @@ export class PatientService {
 
         @InjectRepository(User)
         private readonly userRepo: Repository<User>,
+
+        @InjectRepository(Staff)
+        private readonly staffRepository: Repository<Staff>,
+
+        @InjectRepository(WorkSchedule)
+        private readonly workScheduleRepository: Repository<WorkSchedule>,
+
+        @InjectRepository(WorkScheduleDetail)
+        private workScheduleDetailRepository: Repository<WorkScheduleDetail>,
     ) { }
 
 
     // Lễ tân tạo hồ sơ bệnh nhân chưa có tài khoản
     async createPatientWithoutAccount(dto: CreatePatientDto): Promise<Patient> {
         const existing = await this.patientRepo.findOne({
-            where: { patient_phone: dto.patient_phone },
+            where: [
+                { patient_phone: dto.patient_phone },
+                { fatherORmother_phone: dto.patient_phone },
+                { patient_phone: dto.fatherORmother_phone },
+                { fatherORmother_phone: dto.fatherORmother_phone },
+            ],
         });
         if (existing) {
             throw new ConflictException('Bệnh nhân với số điện thoại này đã tồn tại');
@@ -37,10 +56,8 @@ export class PatientService {
             patient_phone: dto.patient_phone,
             patient_dob: dto.patient_dob,
             patient_gender: dto.patient_gender,
-            father_name: dto.father_name,
-            mother_name: dto.mother_name,
-            father_phone: dto.father_phone,
-            mother_phone: dto.mother_phone,
+            fatherORmother_name: dto.fatherORmother_name,
+            fatherORmother_phone: dto.fatherORmother_phone,
             height: dto.height,
             weight: dto.weight,
             blood_type: dto.blood_type,
@@ -49,6 +66,45 @@ export class PatientService {
             user: null
         });
         return await this.patientRepo.save(patient);
+    }
+
+    // Cập nhật bệnh nhân
+    async updatePatient(id: string, dto: UpdatePatientDto): Promise<Patient> {
+        const patient = await this.patientRepo.findOne({ where: { id } });
+        if (!patient) {
+            throw new NotFoundException('Không tìm thấy bệnh nhân cần cập nhật');
+        }
+
+        // Kiểm tra số điện thoại trùng (nếu có thay đổi)
+        if (dto.patient_phone && dto.patient_phone !== patient.patient_phone) {
+            const existing = await this.patientRepo.findOne({
+                where: { patient_phone: dto.patient_phone },
+            });
+            if (existing) {
+                throw new ConflictException('Số điện thoại đã được sử dụng cho bệnh nhân khác');
+            }
+        }
+
+        Object.assign(patient, dto);
+
+        return await this.patientRepo.save(patient);
+    }
+
+    // Lấy ra danh sách tất cả bệnh nhân
+    async getAllPatient() {
+        const patients = await this.patientRepo.find();
+
+        if (patients.length === 0) {
+            return {
+                message: "Không có bệnh nhân",
+                data: [],
+            };
+        }
+
+        return {
+            message: "Lấy danh sách bệnh nhân thành công",
+            data: patients,
+        };
     }
 
 
@@ -94,5 +150,58 @@ export class PatientService {
         patient.user = user;
         return await this.patientRepo.save(patient);
     }
+
+    // Lấy bác sĩ có sẵn
+    async getAvailableWorkSchedulesToday(): Promise<{ doctor: Staff; freeSlots: WorkScheduleDetail[] }[]> {
+        const now = new Date();
+        const yyyy = now.getFullYear();
+        const mm = (now.getMonth() + 1).toString().padStart(2, '0');
+        const dd = now.getDate().toString().padStart(2, '0');
+        const todayDateString = `${yyyy}-${mm}-${dd}`;
+        const nowVN = new Date(now.getTime() + 7 * 60 * 60 * 1000);
+        const nowString = nowVN.toISOString().slice(0, 19).replace('T', ' ');
+
+        const schedules = await this.workScheduleRepository
+            .createQueryBuilder('ws')
+            .leftJoinAndSelect('ws.staff', 'staff')
+            .leftJoinAndSelect('staff.room', 'room')
+            .leftJoinAndSelect('staff.user', 'user')
+            .leftJoinAndSelect('ws.details', 'details')
+            .where('ws.work_date = :today', { today: todayDateString })
+            .andWhere('details.is_booked = :isBooked', { isBooked: false })
+            .andWhere('details.slot_end > :now', { now: nowString })
+            .orderBy('staff.id', 'ASC')
+            .addOrderBy('details.slot_start', 'ASC')
+            // chỉ chọn các trường cần thiết
+            .select([
+                'ws.id',
+                'ws.work_date',
+                'staff.id',
+                'staff.position',
+                'staff.department',
+                'staff.is_available',
+                'room.id',
+                'room.room_name',
+                'user.id',
+                'user.full_name',
+                'user.email',
+                'details.id',
+                'details.slot_start',
+                'details.slot_end',
+                'details.is_booked',
+            ])
+            .getMany();
+
+        // Gom dữ liệu theo bác sĩ, lọc chỉ những người còn slot trống hợp lệ
+        const result = schedules
+            .map((schedule) => ({
+                doctor: schedule.staff,
+                freeSlots: schedule.details || [],
+            }))
+            .filter((r) => r.freeSlots.length > 0);
+
+        return result;
+    }
+
 
 }

@@ -2,10 +2,13 @@ import {
     Controller,
     Post,
     Patch,
+    Put,
+    Param,
     Body,
     HttpCode,
     HttpStatus,
     UseGuards,
+    Get,
 } from '@nestjs/common';
 import {
     ApiOperation,
@@ -21,6 +24,9 @@ import { PatientService } from './patient.service';
 import { CreatePatientDto } from './dto/create-patient.dto';
 import { LinkPatientAccountDto } from './dto/link-patient-account.dto';
 import { Patient } from '../../shared/entities/patient.entity';
+import { WorkScheduleDetail } from 'src/shared/entities/work-schedule-detail.entity';
+import { Staff } from '../../shared/entities/staff.entity';
+import { UpdatePatientDto } from './dto/update-patient.dto';
 
 @ApiTags('patient')
 @ApiBearerAuth()
@@ -42,6 +48,35 @@ export class PatientController {
         return await this.patientService.createPatientWithoutAccount(dto);
     }
 
+    @Put(':id')
+    @HttpCode(HttpStatus.OK)
+    @ApiOperation({ summary: 'Cập nhật thông tin bệnh nhân' })
+    @ApiResponse({
+        status: 200,
+        description: 'Cập nhật bệnh nhân thành công',
+        type: Patient,
+    })
+    @Roles(UserRole.RECEPTIONIST)
+    async updatePatient(
+        @Param('id') id: string,
+        @Body() dto: UpdatePatientDto
+    ) {
+        return await this.patientService.updatePatient(id, dto);
+    }
+
+    @Get('all-patient')
+    @HttpCode(HttpStatus.OK)
+    @ApiOperation({ summary: 'Lấy tất cả thông tin bệnh nhân' })
+    @ApiResponse({
+        status: 200,
+        description: 'Lấy thông tin bệnh nhân thành công',
+        type: Patient,
+    })
+    @Roles(UserRole.RECEPTIONIST)
+    async getAllPaient() {
+        return await this.patientService.getAllPatient();
+    }
+
     @Patch('link-account')
     @HttpCode(HttpStatus.OK)
     @ApiOperation({ summary: 'Ánh xạ tài khoản người dùng với hồ sơ bệnh nhân' })
@@ -54,4 +89,23 @@ export class PatientController {
     async linkAccount(@Body() dto: LinkPatientAccountDto): Promise<Patient> {
         return await this.patientService.linkAccountToExistingPatient(dto);
     }
+
+    @Get('doctor-available-today')
+    @HttpCode(HttpStatus.OK)
+    @ApiOperation({ summary: 'Lấy khung giờ trống của tất cả bác sĩ trong ngày (chỉ giờ chưa qua)' })
+    @ApiResponse({
+        status: 200,
+        description: 'Trả về danh sách bác sĩ và khung giờ trống còn hiệu lực trong ngày',
+    })
+    @Roles(UserRole.RECEPTIONIST)
+    async getAvailableWorkSchedulesToday(): Promise<{ doctor: Staff; freeSlots: WorkScheduleDetail[] }[]> {
+        try {
+            const availableSchedules = await this.patientService.getAvailableWorkSchedulesToday();
+            return availableSchedules;
+        } catch (error) {
+            console.error('Lỗi khi lấy lịch làm việc trống hôm nay:', error);
+            throw error;
+        }
+    }
+
 }
