@@ -29,16 +29,16 @@ export class Patient {
   patient_gender: Gender;
 
   @Column({ nullable: true })
-  father_name: string;
+  fatherORmother_name: string;
+
+  // @Column({ nullable: true })
+  // mother_name: string;
 
   @Column({ nullable: true })
-  mother_name: string;
+  fatherORmother_phone: string;
 
-  @Column({ nullable: true })
-  father_phone: string;
-
-  @Column({ nullable: true })
-  mother_phone: string;
+  // @Column({ nullable: true })
+  // mother_phone: string;
 
   @Column({ type: 'float', nullable: true })
   height: number;
