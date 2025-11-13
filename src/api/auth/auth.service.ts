@@ -20,7 +20,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     @InjectRepository(Patient)
     private readonly patientRepository: Repository<Patient>,
-  ) {}
+  ) { }
 
   // Đăng ký người dùng mới
   async register(registerDto: RegisterDto) {
@@ -38,7 +38,16 @@ export class AuthService {
       user_role: UserRole.PATIENT,
     });
 
-    const patient = this.patientRepository.create({ user });
+    // Tạo patient và ánh xạ thông tin từ registerDto
+    const patient = this.patientRepository.create({
+      user: user,
+      patient_full_name: registerDto.full_name,
+      patient_phone: registerDto.phone,
+      patient_address: registerDto.address,
+      patient_dob: registerDto.date_of_birth,
+      patient_gender: registerDto.gender
+    });
+
     await this.patientRepository.save(patient);
 
     return { message: 'Registration successful', userId: user.id };
@@ -46,29 +55,30 @@ export class AuthService {
 
   // Đăng nhập và trả về access_token
   async login(loginDto: LoginDto) {
-      const user = await this.userService.findByUsername(loginDto.username);
-      if (!user) throw new UnauthorizedException('Tên đăng nhập không tồn tại!');
+    const user = await this.userService.findByUsername(loginDto.username);
+    if (!user) throw new UnauthorizedException('Tên đăng nhập không tồn tại!');
 
-      const isMatch = await bcrypt.compare(loginDto.password, user.password);
-      if (!isMatch) throw new UnauthorizedException('Mật khẩu không chính xác!');
+    const isMatch = await bcrypt.compare(loginDto.password, user.password);
+    if (!isMatch) throw new UnauthorizedException('Mật khẩu không chính xác!');
 
-      const payload = {
-        sub: user.id,
+    const payload = {
+      sub: user.id,
+      username: user.username,
+      full_name: user.full_name,
+      role: user.user_role,
+    };
+    const token = this.jwtService.sign(payload);
+
+    return {
+      message: 'Đăng nhập thành công!',
+      token,
+      user: {
+        id: user.id,
         username: user.username,
+        email: user.email,
+        avatar: user.avatar,
         role: user.user_role,
-      };
-      const token = this.jwtService.sign(payload);
-
-      return {
-        message: 'Đăng nhập thành công!',
-        token,
-        user: {
-          id: user.id,
-          username: user.username,
-          email: user.email,
-          avatar: user.avatar,
-          role: user.user_role,
-        },
-      };
+      },
+    };
   }
 }
