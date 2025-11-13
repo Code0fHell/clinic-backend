@@ -18,6 +18,11 @@ export class CreateVisitDto {
     @IsOptional()
     appointment_id?: string;
 
+    @ApiPropertyOptional({ description: 'ID của khung giờ bác sĩ (work schedule detail) nếu chọn slot rảnh' })
+    @IsUUID()
+    @IsOptional()
+    work_schedule_detail_id?: string;
+
     @ApiProperty({ description: 'Loại visit', enum: VisitType })
     @IsEnum(VisitType)
     visit_type: VisitType;

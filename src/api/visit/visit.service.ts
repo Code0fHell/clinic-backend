@@ -7,6 +7,7 @@ import { Patient } from '../../shared/entities/patient.entity';
 import { Staff } from '../../shared/entities/staff.entity';
 import { Appointment } from '../../shared/entities/appointment.entity';
 import { MedicalRecord } from '../../shared/entities/medical-record.entity';
+import { WorkScheduleDetail } from 'src/shared/entities/work-schedule-detail.entity';
 import { AppointmentStatus } from 'src/shared/enums/appointment-status.enum';
 import { VisitStatus } from 'src/shared/enums/visit-status.enum';
 import dayjs from 'dayjs';
@@ -28,6 +29,9 @@ export class VisitService {
 
         @InjectRepository(MedicalRecord)
         private readonly medicalRecordRepository: Repository<MedicalRecord>,
+
+        @InjectRepository(WorkScheduleDetail)
+        private readonly workScheduleDetailRepository: Repository<WorkScheduleDetail>,
     ) { }
 
     async create(dto: CreateVisitDto): Promise<Visit> {
@@ -38,7 +42,7 @@ export class VisitService {
         let doctor: Staff | null = null;
         let appointment: Appointment | null = null;
 
-        // Xử lý bệnh nhân có lịch hẹn trước
+        // Bệnh nhân có lịch hẹn trước
         if (dto.appointment_id) {
             appointment = await this.appointmentRepository.findOne({
                 where: { id: dto.appointment_id },
@@ -50,23 +54,40 @@ export class VisitService {
             appointment.status = AppointmentStatus.CHECKED_IN;
             await this.appointmentRepository.save(appointment);
             dto.visit_status = VisitStatus.CHECKED_IN;
-        } 
+        }
         // Bệnh nhân đến khám tự do
         else {
-            if (!dto.doctor_id) {
-                throw new BadRequestException('Bác sĩ phải được chọn khi không có Appointment');
+            if (!dto.doctor_id || !dto.work_schedule_detail_id) {
+                throw new BadRequestException(
+                    'Bác sĩ và khung giờ phải được chọn khi không có Appointment',
+                );
             }
+
             doctor = await this.staffRepository.findOne({ where: { id: dto.doctor_id } });
             if (!doctor) throw new NotFoundException(`Doctor với id ${dto.doctor_id} không tồn tại`);
             dto.visit_status = VisitStatus.CHECKED_IN;
+
+            // ===== XỬ LÝ ĐÁNH DẤU KHUNG GIỜ LÀ ĐÃ ĐẶT =====
+            const slot = await this.workScheduleDetailRepository.findOne({
+                where: { id: dto.work_schedule_detail_id, is_booked: false },
+                relations: ['schedule', 'schedule.staff'],
+            });
+
+            if (!slot) {
+                throw new BadRequestException('Khung giờ đã bị đặt hoặc không tồn tại');
+            }
+
+            // Đánh dấu slot đã đặt
+            slot.is_booked = true;
+            await this.workScheduleDetailRepository.save(slot);
         }
 
         // Nếu có hồ sơ bệnh án
         let medicalRecord: MedicalRecord | null = null;
         if (dto.medical_record_id) {
-        medicalRecord = await this.medicalRecordRepository.findOne({ where: { id: dto.medical_record_id } });
-        if (!medicalRecord)
-            throw new NotFoundException(`MedicalRecord với id ${dto.medical_record_id} không tồn tại`);
+            medicalRecord = await this.medicalRecordRepository.findOne({ where: { id: dto.medical_record_id } });
+            if (!medicalRecord)
+                throw new NotFoundException(`MedicalRecord với id ${dto.medical_record_id} không tồn tại`);
         }
 
         // Xác định queue_number tăng dần trong ngày
@@ -74,8 +95,8 @@ export class VisitService {
         const endOfDay = dayjs().endOf('day').toDate();
 
         const lastVisitToday = await this.visitRepository.findOne({
-        where: { checked_in_at: Between(startOfDay, endOfDay) },
-        order: { queue_number: 'DESC' },
+            where: { checked_in_at: Between(startOfDay, endOfDay) },
+            order: { queue_number: 'DESC' },
         });
 
         const nextQueueNumber = lastVisitToday ? lastVisitToday.queue_number + 1 : 1;
@@ -120,7 +141,7 @@ export class VisitService {
         });
 
         if (!visit) {
-        throw new NotFoundException(`Visit với id ${visitId} không tồn tại`);
+            throw new NotFoundException(`Visit với id ${visitId} không tồn tại`);
         }
 
         // Cập nhật trạng thái visit
@@ -131,4 +152,43 @@ export class VisitService {
             message: "Trạng thái thăm khám đã được cập nhật!", status: visit.visit_status
         }
     }
+
+    // Tìm thông tin để tạo bill
+    async findOneWithTicket(visitId: string, user: any): Promise<any> {
+        const visit = await this.visitRepository.findOne({
+            where: { id: visitId },
+            relations: [
+                'patient',
+                'medicalTickets',
+                'doctor',
+                'doctor.user', // để lấy tên bác sĩ từ user
+            ],
+            select: {
+                id: true,
+                patient: {
+                    id: true,
+                    patient_full_name: true,
+                },
+                doctor: {
+                    id: true,
+                    user: {
+                        full_name: true,
+                    },
+                },
+                medicalTickets: {
+                    id: true,
+                },
+            },
+        });
+
+        if (!visit) {
+            throw new NotFoundException('Không tìm thấy visit');
+        }
+
+        return {
+            ...visit,
+            created_by: user?.full_name
+        };
+    }
+
 }
