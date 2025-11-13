@@ -8,6 +8,7 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/guards/roles.decorator';
 import { UserRole } from '../../shared/enums/user-role.enum';
 import { VisitStatus } from 'src/shared/enums/visit-status.enum';
+import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 
 @ApiTags('visit')
 @ApiBearerAuth()
@@ -29,10 +30,23 @@ export class VisitController {
         return this.visitService.getTodayQueue();
     }
 
+    @Get(':id')
+    @HttpCode(HttpStatus.OK)
+    @ApiOperation({ summary: 'Lấy ra chi tiết visit' })
+    @ApiResponse({
+        status: 200,
+        description: 'Chi tiết visit',
+        type: Visit
+    })
+    @Roles(UserRole.RECEPTIONIST)
+    async getVisitDetail(@Param('id') visitId: string, @CurrentUser() user:any) {
+        return this.visitService.findOneWithTicket(visitId, user);
+    }
+
     @Post('create')
     @HttpCode(HttpStatus.CREATED)
     @ApiOperation({ summary: 'Tạo mới visit cho bệnh nhân' })
-    @ApiResponse({ 
+    @ApiResponse({
         status: 201,
         description: 'Visit được tạo thành công',
         type: Visit
