@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsUUID, IsOptional, IsNotEmpty, } from 'class-validator';
+import { IsEnum, IsUUID, IsOptional, IsNotEmpty, IsNumberString } from 'class-validator';
 import { BillType } from '../../../shared/enums/bill-type.enum';
 
 export class CreateBillDto {
@@ -51,4 +51,13 @@ export class CreateBillDto {
   @IsOptional()
   @IsUUID('4', { message: 'prescription_id phải là UUID hợp lệ' })
   prescription_id?: string;
+
+  @ApiProperty({
+    description: 'Tổng tiền của hóa đơn',
+    example: 150000.5,
+    type: 'number',
+  })
+  @IsNotEmpty({ message: 'total là bắt buộc' })
+  @IsNumberString({}, { message: 'total phải là số hợp lệ' })
+  total: string;
 }
