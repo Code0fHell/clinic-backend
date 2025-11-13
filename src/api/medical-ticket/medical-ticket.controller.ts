@@ -4,7 +4,7 @@ import {
     Param,
     HttpCode,
     HttpStatus,
-    UseGuards,
+    UseGuards
 } from '@nestjs/common';
 import {
     ApiOperation,
@@ -16,6 +16,7 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { MedicalTicketService } from './medical-ticket.service';
 import { MedicalTicketResponseDto } from './dto/medical-ticket-response.dto';
+import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 
 // 👇 Import thêm
 import { Roles } from '../../common/guards/roles.decorator';
@@ -29,7 +30,7 @@ import { UserRole } from '../../shared/enums/user-role.enum';
 export class MedicalTicketController {
     constructor(private readonly medicalTicketService: MedicalTicketService) { }
 
-    @Post('create/:visitId')
+    @Post(':visitId/create-ticket')
     @HttpCode(HttpStatus.CREATED)
     @ApiOperation({ summary: 'Tạo phiếu khám bệnh mới (chỉ lễ tân RECEPTIONIST)' })
     @ApiParam({ name: 'visitId', description: 'ID của lượt khám (Visit)' })
@@ -39,7 +40,10 @@ export class MedicalTicketController {
         type: MedicalTicketResponseDto,
     })
     @Roles(UserRole.RECEPTIONIST)
-    async create(@Param('visitId') visitId: string): Promise<MedicalTicketResponseDto> {
-        return await this.medicalTicketService.createMedicalTicket(visitId);
+    async create(
+        @Param('visitId') visitId: string,
+        @CurrentUser() user: any, // hoặc @Req() req: Request
+    ): Promise<MedicalTicketResponseDto> {
+        return await this.medicalTicketService.createMedicalTicket(visitId, user);
     }
 }
