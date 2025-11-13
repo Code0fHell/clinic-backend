@@ -121,4 +121,26 @@ export class PaymentService {
       return { success: false, message: 'Unknown status' };
     }
 
+    async createCashPayment(dto: GeneratePaymentQRDto) {
+        const bill = await this.billRepository.findOne({
+            where: { id: dto.bill_id },
+            relations: ["patient", "patient.user"],
+        });
+        if (!bill) throw new NotFoundException("Bill not found");
+
+        const patient = bill.patient;
+        if (!patient) throw new NotFoundException("Patient not found");
+
+        // Nếu bệnh nhân có tài khoản thì dùng user, nếu không thì lưu trực tiếp patient
+        const payment = this.paymentRepository.create({
+            bill,
+            amount: dto.amount ?? bill.total,
+            payment_method: PaymentMethod.CASH,
+            payment_status: PaymentStatus.SUCCESS,
+            paidByUser: patient.user || null,
+            paidByPatient: patient.user ? null : patient,
+        });
+        return await this.paymentRepository.save(payment);
+    }
+
 }
