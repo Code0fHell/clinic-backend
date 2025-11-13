@@ -29,7 +29,7 @@ export class BillService {
         private readonly indicationTicketRepository: Repository<IndicationTicket>,
         @InjectRepository(Prescription)
         private readonly prescriptionRepository: Repository<Prescription>
-    ) {}
+    ) { }
 
     // Lễ tân tạo hóa đơn cho bệnh nhân
     async createBill(dto: CreateBillDto) {
@@ -38,7 +38,7 @@ export class BillService {
         });
         if (!patient) throw new NotFoundException("Patient not found");
 
-        let total = 0;
+        let total = dto.total || 0;
         let doctor: Staff | null = null;
         let medicalTicket: MedicalTicket | null = null;
         let indicationTicket: IndicationTicket | null = null;
@@ -53,7 +53,7 @@ export class BillService {
             if (!medicalTicket)
                 throw new NotFoundException("Medical ticket not found");
 
-            doctor = medicalTicket.assigned_doctor_id; 
+            doctor = medicalTicket.assigned_doctor_id;
             // total = medicalTicket.clinical_fee || 0;
         }
         else if (dto.bill_type === BillType.SERVICE) {
