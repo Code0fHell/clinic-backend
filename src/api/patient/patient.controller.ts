@@ -1,12 +1,11 @@
 import {
-    Controller,
-    Post,
-    Patch,
-    Put,
-    Param,
     Body,
+    Controller,
     HttpCode,
     HttpStatus,
+    Param,
+    Patch,
+    Post,
     UseGuards,
     Get,
 } from '@nestjs/common';
@@ -27,6 +26,7 @@ import { Patient } from '../../shared/entities/patient.entity';
 import { WorkScheduleDetail } from 'src/shared/entities/work-schedule-detail.entity';
 import { Staff } from '../../shared/entities/staff.entity';
 import { UpdatePatientDto } from './dto/update-patient.dto';
+import { UpdatePatientVitalsDto } from './dto/update-patient-vitals.dto';
 
 @ApiTags('patient')
 @ApiBearerAuth()
@@ -108,4 +108,19 @@ export class PatientController {
         }
     }
 
+    @Patch(':id/vitals')
+    @HttpCode(HttpStatus.OK)
+    @ApiOperation({ summary: 'Bác sĩ cập nhật sinh hiệu & tiền sử bệnh cho bệnh nhân' })
+    @ApiResponse({
+        status: 200,
+        description: 'Cập nhật thành công',
+        type: Patient,
+    })
+    @Roles(UserRole.DOCTOR)
+    async updateVitals(
+        @Param('id') patientId: string,
+        @Body() dto: UpdatePatientVitalsDto,
+    ) {
+        return this.patientService.updatePatientVitals(patientId, dto);
+    }
 }

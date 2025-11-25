@@ -13,6 +13,7 @@ import { WorkSchedule } from 'src/shared/entities/work-schedule.entity';
 import { Between } from 'typeorm';
 import { CreatePatientDto } from './dto/create-patient.dto';
 import { LinkPatientAccountDto } from './dto/link-patient-account.dto';
+import { UpdatePatientVitalsDto } from './dto/update-patient-vitals.dto';
 import { UserRole } from 'src/shared/enums/user-role.enum';
 import { UpdatePatientDto } from './dto/update-patient.dto';
 
@@ -62,6 +63,8 @@ export class PatientService {
             weight: dto.weight,
             blood_type: dto.blood_type,
             respiratory_rate: dto.respiratory_rate,
+            blood_pressure: dto.blood_pressure,
+            pulse_rate: dto.pulse_rate,
             medical_history: dto.medical_history,
             user: null
         });
@@ -204,4 +207,22 @@ export class PatientService {
     }
 
 
+    async updatePatientVitals(patientId: string, dto: UpdatePatientVitalsDto) {
+        const patient = await this.patientRepo.findOne({
+            where: { id: patientId },
+        });
+
+        if (!patient) {
+            throw new NotFoundException('Không tìm thấy hồ sơ bệnh nhân');
+        }
+
+        patient.height = dto.height ?? patient.height;
+        patient.weight = dto.weight ?? patient.weight;
+        patient.blood_pressure = dto.blood_pressure ?? patient.blood_pressure;
+        patient.respiratory_rate = dto.respiratory_rate ?? patient.respiratory_rate;
+        patient.pulse_rate = dto.pulse_rate ?? patient.pulse_rate;
+        patient.medical_history = dto.medical_history ?? patient.medical_history;
+
+        return this.patientRepo.save(patient);
+    }
 }

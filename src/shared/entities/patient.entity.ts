@@ -52,6 +52,12 @@ export class Patient {
   @Column({ nullable: true })
   respiratory_rate: string;
 
+  @Column({ nullable: true })
+  blood_pressure: string;
+
+  @Column({ type: 'int', nullable: true })
+  pulse_rate: number;
+
   @Column({ type: 'text', nullable: true })
   medical_history: string;
 

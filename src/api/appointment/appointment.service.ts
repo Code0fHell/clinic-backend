@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { WorkScheduleDetail } from "../../shared/entities/work-schedule-detail.entity";
 import { Repository, Between } from "typeorm";
@@ -25,7 +25,20 @@ export class AppointmentService {
         private readonly appointmentRepository: Repository<Appointment>,
         @InjectRepository(User)
         private readonly userRepository: Repository<User>
-    ) { }
+    ) {}
+
+    async getUserWithStaff(userId: string) {
+        const user = await this.userRepository.findOne({
+            where: { id: userId },
+            relations: ['staff'],
+        });
+        
+        if (!user || !user.staff) {
+            throw new NotFoundException('This user is not a doctor or does not have staff profile');
+        }
+        
+        return user.staff.id;
+    }
 
     async getAvailableSlots(scheduleId: string) {
         return this.workScheduleDetailRepository.find({
@@ -34,15 +47,21 @@ export class AppointmentService {
         });
     }
 
-    async bookAppointment(patientId: string, dto: BookAppointmentDto) {
+    async bookAppointment(userId: string, dto: BookAppointmentDto) {
         // Find entities
         const doctor = await this.staffRepository.findOne({
             where: { id: dto.doctor_id },
         });
-        const patient = await this.patientRepository.findOne({
-            where: { user: { id: patientId } },
-            relations: ["user"],
+        const user = await this.userRepository.findOne({
+            where: { id: userId },
+            relations: ["patient"],
         });
+
+        if (!user) throw new Error("User not found");
+        if (!user.patient) throw new Error("Patient not found for this user");
+
+        const patient = user.patient;
+
         const slot = await this.workScheduleDetailRepository.findOne({
             where: { id: dto.schedule_detail_id, is_booked: false },
         });
@@ -62,7 +81,10 @@ export class AppointmentService {
             appointment_date: new Date(), // thời điểm đặt lịch
             scheduled_date: slot.slot_start, // ngày khám
             reason: dto.reason,
-            session: slot.slot_start.getHours() < 12 ? Session.MORNING : Session.AFTERNOON,
+            session:
+                slot.slot_start.getHours() < 12
+                    ? Session.MORNING
+                    : Session.AFTERNOON,
             status: AppointmentStatus.PENDING,
         });
         await this.appointmentRepository.save(appointment);
@@ -84,8 +106,8 @@ export class AppointmentService {
         const user = this.userRepository.create({
             full_name: dto.full_name,
             email: dto.email,
-            username: dto.email.split('@')[0],
-            password: 'guest',
+            username: dto.email.split("@")[0],
+            password: "guest",
             user_role: UserRole.PATIENT,
         });
         await this.userRepository.save(user);
@@ -95,7 +117,7 @@ export class AppointmentService {
             user,
             patient_full_name: dto.full_name,
             patient_dob: new Date(dto.dob),
-            patient_phone: dto.phone
+            patient_phone: dto.phone,
         });
         await this.patientRepository.save(patient);
 
@@ -121,25 +143,34 @@ export class AppointmentService {
 
     // Lấy ra tất cả cuộc hẹn
     async getAllAppointments() {
-    return this.appointmentRepository.find({
-        relations: ["doctor", "doctor.user", "patient", "schedule_detail"],
-        order: { appointment_date: "ASC" },
-    });
-    }
-
-    // Lấy ra cuộc hẹn trong ngày
-    async getTodayAppointments() {
-        const startOfDay = dayjs().startOf("day").toDate();
-        const endOfDay = dayjs().endOf("day").toDate();
-
         return this.appointmentRepository.find({
-            where: {
-                appointment_date: Between(startOfDay, endOfDay),
-            },
-            relations: ["doctor", "doctor.user", "patient", "schedule_detail", "patient.user"],
+            relations: ["doctor", "doctor.user", "patient", "schedule_detail"],
             order: { appointment_date: "ASC" },
         });
     }
+
+    // Lấy ra cuộc hẹn trong ngày của bác sĩ
+    async getTodayAppointments(userId: string) {
+        const staffId = await this.getUserWithStaff(userId);
+    
+        const startOfDay = dayjs().startOf("day").toDate();
+        const endOfDay = dayjs().endOf("day").toDate();
+    
+        return this.appointmentRepository.find({
+            where: {
+            appointment_date: Between(startOfDay, endOfDay),
+            },
+            relations: [
+                "doctor", 
+                "doctor.user", 
+                "patient", 
+                "schedule_detail", 
+                "patient.user"
+            ],
+            order: { scheduled_date: "ASC" },
+        });
+    }
+    
 
     async updateAppointmentStatus(appointmentId: string, status: AppointmentStatus) {
         try {
@@ -154,12 +185,14 @@ export class AppointmentService {
             await this.appointmentRepository.save(appointment);
 
             return {
-                message: "Appointment status updated", status: appointment.status
-            }
+                message: "Appointment status updated",
+                status: appointment.status,
+            };
         } catch (error) {
             return {
-                message: "Failed to update appointment status", error: error.message,
-            }
+                message: "Failed to update appointment status",
+                error: error.message,
+            };
         }
     }
     

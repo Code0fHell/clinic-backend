@@ -103,6 +103,26 @@ export class CreatePatientDto {
   respiratory_rate?: string;
 
   @ApiProperty({
+    example: '120/80',
+    required: false,
+    description: 'Huyết áp',
+  })
+  @IsOptional()
+  @IsString({ message: 'Huyết áp phải là chuỗi' })
+  blood_pressure?: string;
+
+  @ApiProperty({
+    example: 75,
+    required: false,
+    description: 'Mạch (lần/phút)',
+  })
+  @IsOptional()
+  @IsNumber({}, { message: 'Mạch phải là số' })
+  @Min(10, { message: 'Mạch không hợp lệ' })
+  @Max(300, { message: 'Mạch không hợp lệ' })
+  pulse_rate?: number;
+
+  @ApiProperty({
     example: 'Bệnh nhân có tiền sử viêm phổi năm 2020',
     required: false,
   })

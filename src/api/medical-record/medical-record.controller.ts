@@ -18,4 +18,10 @@ export class MedicalRecordController {
   async getByPatient(@Param('patientId') patientId: string) {
     return this.medicalRecordService.getByPatientId(patientId);
   }
+
+  @Get('patient/:patientId/history')
+  @Roles(UserRole.DOCTOR, UserRole.PATIENT, UserRole.RECEPTIONIST)
+  async getHistory(@Param('patientId') patientId: string) {
+    return this.medicalRecordService.getPatientHistory(patientId);
+  }
 }

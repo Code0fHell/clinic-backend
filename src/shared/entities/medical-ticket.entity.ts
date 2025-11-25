@@ -19,6 +19,9 @@ export class MedicalTicket {
   @Column({ unique: true, nullable: true })
   barcode: string;
 
+  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
+  clinical_fee: number;
+
   @Column({ type: 'datetime', default: () => 'CURRENT_TIMESTAMP' })
   issued_at: Date;
 
