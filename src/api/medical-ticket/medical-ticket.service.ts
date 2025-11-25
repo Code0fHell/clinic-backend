@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, InternalServerErrorException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Between, Repository } from 'typeorm';
+import dayjs from 'dayjs';
 import { MedicalTicket } from '../../shared/entities/medical-ticket.entity';
 import { Visit } from '../../shared/entities/visit.entity';
 import { Staff } from '../../shared/entities/staff.entity';
@@ -22,7 +23,7 @@ export class MedicalTicketService {
         //Tìm visit (bao gồm bác sĩ & bệnh nhân)
         const visit = await this.visitRepo.findOne({
             where: { id: visitId },
-            relations: ['doctor.user', 'patient'],
+            relations: ['doctor.user', 'doctor.room', 'patient'],
         });
 
         if (!visit) throw new NotFoundException('Không tìm thấy lượt khám (Visit)');
@@ -35,6 +36,8 @@ export class MedicalTicketService {
         const patientId = patient.id;
 
         const today = new Date().toISOString().split('T')[0].replace(/-/g, '');
+        const startOfDay = dayjs().startOf('day').toDate();
+        const endOfDay = dayjs().endOf('day').toDate();
 
         let barcode = '';
 
@@ -50,19 +53,33 @@ export class MedicalTicketService {
             }
         }
 
+        const ticketsTodayWithDoctor = await this.ticketRepo.count({
+            where: {
+                assigned_doctor_id: { id: doctor.id },
+                issued_at: Between(startOfDay, endOfDay),
+            },
+        });
+
+        const clinicalFee = Number(process.env.CLINICAL_EXAM_FEE || 150000);
+
         const ticket = this.ticketRepo.create({
             visit_id: { id: visitId },
             assigned_doctor_id: { id: doctor.id },
             barcode,
+            clinical_fee: clinicalFee,
         });
 
         await this.ticketRepo.save(ticket);
 
         return {
+            ticket_id: ticket.id,
             queue_number: visit.queue_number,
+            room_name: doctor.room?.room_name ?? null,
             doctor_name: doctor.user.full_name,
             barcode: ticket.barcode,
             issued_at: ticket.issued_at,
+            clinical_fee: clinicalFee,
+            patient_id: patient.id,
         };
     }
 }

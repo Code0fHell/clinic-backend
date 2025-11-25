@@ -9,10 +9,16 @@ import { UserRole } from 'src/shared/enums/user-role.enum';
 import { Roles } from 'src/common/guards/roles.decorator';
 
 @ApiTags('medicine')
-@Controller('medicine')
+@Controller('api/v1/medicine')
 export class MedicineController {
   constructor(private readonly medicineService: MedicineService) {}
 
+  @Get('search')
+  @ApiOperation({ summary: 'Search medicines by name or description' })
+  findByNameorDescription(@Query('q') q: string) {
+    return this.medicineService.searchByNameOrDescription(q);
+  }
+  
   @Post()
   @ApiOperation({ summary: 'Create a new medicine' })
   @ApiBearerAuth()
@@ -51,11 +57,5 @@ export class MedicineController {
   @Roles(UserRole.PHARMACIST, UserRole.OWNER)
   remove(@Param('id') id: string) {
     return this.medicineService.remove(id);
-  }
-
-  @Get('search')
-  @ApiOperation({ summary: 'Search medicines by name' })
-  findByName(@Query('q') q: string) {
-    return this.medicineService.searchByName(q);
   }
 }

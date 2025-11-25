@@ -101,15 +101,16 @@ export class VisitService {
         const endOfDay = dayjs().endOf('day').toDate();
 
         return this.visitRepository
-            .createQueryBuilder('visit')
-            .leftJoinAndSelect('visit.patient', 'patient')
-            .leftJoinAndSelect('visit.doctor', 'doctor')
-            .leftJoinAndSelect('doctor.user', 'user')
-            .leftJoinAndSelect('visit.appointment', 'appointment')
-            .where('visit.checked_in_at BETWEEN :start AND :end', { start: startOfDay, end: endOfDay })
-            .orderBy('CASE WHEN visit.appointment_id IS NOT NULL THEN 0 ELSE 1 END', 'ASC')
-            .addOrderBy('visit.queue_number', 'ASC')
-            .getMany();
+        .createQueryBuilder('visit')
+        .leftJoinAndSelect('visit.patient', 'patient')
+        .leftJoinAndSelect('visit.doctor', 'doctor')
+        .leftJoinAndSelect('doctor.user', 'user')
+        .leftJoinAndSelect('visit.appointment', 'appointment')
+        .leftJoinAndSelect('visit.medicalTickets', 'medicalTickets') 
+        .where('visit.checked_in_at BETWEEN :start AND :end', { start: startOfDay, end: endOfDay })
+        .orderBy('CASE WHEN visit.appointment_id IS NOT NULL THEN 0 ELSE 1 END', 'ASC')
+        .addOrderBy('visit.queue_number', 'ASC')
+        .getMany();
     }
 
     // Cập nhật trạng thái visit

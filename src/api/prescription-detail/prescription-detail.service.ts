@@ -52,6 +52,17 @@ export class PrescriptionDetailService {
     if (!savedPrescriptionDetail) {
       throw new Error('Tạo chi tiết đơn thuốc thất bại');
     }
+    // --- Update prescription total_fee ---
+    const details = await this.prescriptionDetailRepository.find({
+      where: { prescription: { id: prescription.id } },
+      relations: ['medicine'],
+    });
+    const totalFee = details.reduce(
+      (sum, d) => sum + Number(d.medicine.price || 0) * d.quantity,
+      0,
+    );
+    prescription.total_fee = totalFee;
+    await this.prescriptionRepository.save(prescription);
 
     return {
       message: 'Tạo chi tiết đơn thuốc thành công',

@@ -10,11 +10,10 @@ import { ServiceIndication } from "../../shared/entities/service-indication.enti
 import { MedicalTicket } from "../../shared/entities/medical-ticket.entity";
 import { Patient } from "../../shared/entities/patient.entity";
 import { Staff } from "../../shared/entities/staff.entity";
-import { Repository } from "typeorm";
+import { Repository, Between } from "typeorm";
 import { CreateIndicationTicketDto } from "./dto/create-indication-ticket.dto";
 import { DoctorType } from "src/shared/enums/doctor-type.enum";
 import { MedicalRecord } from "../../shared/entities/medical-record.entity";
-
 @Injectable()
 export class IndicationService {
     constructor(
@@ -33,6 +32,33 @@ export class IndicationService {
         @InjectRepository(MedicalRecord)
         private readonly medicalRecordRepository: Repository<MedicalRecord>
     ) {}
+
+    private generateShortCode(length = 4) {
+        return Array.from({ length })
+            .map(() => Math.floor(Math.random() * 36).toString(36).toUpperCase())
+            .join('');
+    }
+    // Tạo barcode ngắn: CD-YYYYMMDD-XXXX
+    async generateUniqueBarcode(): Promise<string> {
+        const date = new Date();
+        const dateStr = date.toISOString().slice(0, 10).replace(/-/g, ""); // YYYYMMDD
+
+        let barcode: string;
+        let exists: IndicationTicket | null;
+
+        do {
+            const randomCode = this.generateShortCode(4); // 4 ký tự
+            barcode = `CD-${dateStr}-${randomCode}`;
+
+            exists = await this.indicationTicketRepository.findOne({
+                where: { barcode },
+            });
+
+        } while (exists);
+
+        return barcode;
+    }
+
 
     async createIndicationTicket(
         userId: string,
@@ -83,11 +109,11 @@ export class IndicationService {
         });
         await this.indicationTicketRepository.save(indicationTicket);
 
-        const dateStr = indicationTicket.indication_date
-            .toISOString()
-            .replace(/[:.]/g, "-");
-        indicationTicket.barcode = `CD-${dateStr}-${indicationTicket.id}`;
+        // 🔥 Tạo barcode ngắn – không trùng
+        const barcode = await this.generateUniqueBarcode();
+        indicationTicket.barcode = barcode;
         await this.indicationTicketRepository.save(indicationTicket);
+
 
         const serviceItems: {
             medical_service_id: string;
@@ -104,12 +130,18 @@ export class IndicationService {
             });
             if (!medicalService) continue;
 
-            const queueNumber =
-                (await this.serviceIndicationRepository.count({
-                    where: {
-                        medical_service: { id: serviceId },
-                    },
-                })) + 1;
+            const today = new Date();
+            const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+            const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+
+            const queueNumber = await this.serviceIndicationRepository.count({
+                where: {
+                    medical_service: { room: { id: medicalService.room.id } },
+                    created_at: Between(startOfDay, endOfDay),
+                },
+                relations: ["medical_service", "medical_service.room"],
+            }) + 1;
+
 
             const serviceIndication = this.serviceIndicationRepository.create({
                 indication: indicationTicket,
@@ -140,7 +172,9 @@ export class IndicationService {
             barcode: indicationTicket.barcode,
             medical_ticket_id: medicalTicket.id,
             patient_id: patient.id,
+            patient_name: patient.patient_full_name, 
             doctor_id: doctor.id,
+            doctor_name:  doctor.user.full_name,
             diagnosis: indicationTicket.diagnosis,
             indication_date: indicationTicket.indication_date,
             service_items: serviceItems,

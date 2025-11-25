@@ -48,6 +48,6 @@ export class User {
   @OneToOne(() => Staff, staff => staff.user)
   staff: Staff;
 
-  @OneToOne(() => Patient, patient => patient.user, { cascade: true })
+  @OneToOne(() => Patient, patient => patient.user)
   patient: Patient;
 }
