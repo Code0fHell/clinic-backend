@@ -38,7 +38,7 @@ export class AppointmentController {
     @UseGuards(JwtAuthGuard, RolesGuard)
     @ApiOperation({ summary: "Book an appointment" })
     async bookAppointment(@Req() req, @Body() dto: BookAppointmentDto) {
-        const userId = req.user.sub;
+        const userId = req.user.userId;
         return this.appointmentService.bookAppointment(userId, dto);
     }
 
@@ -60,7 +60,7 @@ export class AppointmentController {
         summary: "Get today's appointments for the authenticated doctor",
     })
     async getTodayAppointments(@Req() req) {
-        const userId = req.user.sub;
+        const userId = req.user.userId;
         // Find the staff/doctor associated with this user
         return this.appointmentService.getTodayAppointments(userId);
     }

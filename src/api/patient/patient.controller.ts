@@ -8,6 +8,7 @@ import {
     Post,
     UseGuards,
     Get,
+    Put,
 } from '@nestjs/common';
 import {
     ApiOperation,
@@ -56,7 +57,7 @@ export class PatientController {
         description: 'Cập nhật bệnh nhân thành công',
         type: Patient,
     })
-    @Roles(UserRole.RECEPTIONIST)
+    @Roles(UserRole.RECEPTIONIST, UserRole.PATIENT)
     async updatePatient(
         @Param('id') id: string,
         @Body() dto: UpdatePatientDto

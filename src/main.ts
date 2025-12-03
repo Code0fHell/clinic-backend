@@ -8,32 +8,37 @@ import { ValidationPipe } from '@nestjs/common';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+    const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
-  app.enableCors({
+    app.enableCors({
     origin: ['http://localhost:5173'],
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
-    credentials: true,
-    allowedHeaders: 'Content-Type, Authorization, X-Requested-With, Accept',
-  });
+        credentials: true,
+        allowedHeaders: "Content-Type, Authorization, X-Requested-With, Accept",
+    });
 
-  app.useStaticAssets(join(__dirname, '..', 'uploads'), {
-    prefix: '/static/',
-  });
+    app.useStaticAssets(join(__dirname, "..", "uploads"), {
+        prefix: "/static/",
+    });
 
-  const config = new DocumentBuilder()
-    .setTitle('Clinic Management API')
-    .setDescription('API documentation for Clinic Management System')
-    .setVersion('1.0')
-    .addBearerAuth()
-    .build();
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api-docs', app, document);
-  
+    const config = new DocumentBuilder()
+        .setTitle("Clinic Management API")
+        .setDescription("API documentation for Clinic Management System")
+        .setVersion("1.0")
+        .addBearerAuth()
+        .build();
+    const document = SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup("api-docs", app, document);
+
   app.use(bodyParser.json({ limit: '10mb' }));
   app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
-  app.useGlobalFilters(new AllExceptionsFilter());
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }));
-  await app.listen(3000);
+    app.useGlobalFilters(new AllExceptionsFilter());
+    app.useGlobalPipes(
+        new ValidationPipe({ 
+          whitelist: true,  
+          transform: true,
+          forbidNonWhitelisted: true })
+    );
+    await app.listen(3000);
 }
 bootstrap();
