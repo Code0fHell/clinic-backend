@@ -29,8 +29,18 @@ async function bootstrap() {
     .build();
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api-docs', app, document);
-  
-  app.use(bodyParser.json({ limit: '10mb' }));
+
+  app.use(
+    bodyParser.json({
+      limit: '10mb',
+      verify: (req: any, res: any, buf: Buffer, encoding: string) => {
+        if (req.originalUrl.includes('api/v1/payment/vietqr/webhook')) {
+          req.rawBody = buf.toString(encoding as BufferEncoding);
+          // console.log('Raw body đã được lưu cho webhook PayOS: ' + req.rawBody);
+        }
+      },
+    }),
+  );
   app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
   app.useGlobalFilters(new AllExceptionsFilter());
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }));
