@@ -1,17 +1,18 @@
-import { Controller, Post, Body, UseGuards } from "@nestjs/common";
+import { Controller, Post, Get, Body, UseGuards, Param } from "@nestjs/common";
 import { BillService } from "./bill.service";
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiBody } from "@nestjs/swagger";
 import { AuthGuard } from "@nestjs/passport";
 import { RolesGuard } from "../../common/guards/roles.guard";
 import { Roles } from "../../common/guards/roles.decorator";
 import { CreateBillDto } from "./dto/create-bill.dto";
+import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 
 @ApiTags("bill")
 @ApiBearerAuth()
 @UseGuards(AuthGuard("jwt"), RolesGuard)
 @Controller("api/v1/bill")
 export class BillController {
-    constructor(private readonly billService: BillService) {}
+    constructor(private readonly billService: BillService) { }
 
     @Post()
     @ApiOperation({
@@ -26,5 +27,25 @@ export class BillController {
     @Roles("RECEPTIONIST")
     async createBill(@Body() dto: CreateBillDto) {
         return this.billService.createBill(dto);
+    }
+
+    @Get("/all-bill-today")
+    @ApiOperation({
+        summary: "Lấy tất cả Bill",
+    })
+    @Roles("RECEPTIONIST")
+    async getAllBillToday(
+        @CurrentUser() user: any // hoặc @Req() req: Request)
+    ) {
+        return this.billService.getAllBillToday(user);
+    }
+
+    @Get("/:billId")
+    @ApiOperation({
+        summary: "Lấy chi tiết Bill",
+    })
+    @Roles("RECEPTIONIST")
+    async getDetailBill(@Param('billId') billId: string) {
+        return this.billService.getDetailBill(billId);
     }
 }
