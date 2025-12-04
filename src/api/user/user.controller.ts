@@ -6,6 +6,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { UserService } from './user.service';
 import { extname, join } from 'path';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 // import { File } from 'multer';
 import { existsSync, mkdirSync } from 'fs';
 
@@ -16,16 +17,16 @@ import { existsSync, mkdirSync } from 'fs';
 export class UserController {
   constructor(private readonly userService: UserService) { }
 
-  @Get(':id')
-  @ApiOperation({ summary: 'Get user by ID' })
-  async getUser(@Param('id') id: string) {
-    return this.userService.findById(id);
+  @Get('profile')
+  @ApiOperation({ summary: 'Get current user profile' })
+  async getProfile(@CurrentUser() user) {
+    return this.userService.getProfile(user.userId);
   }
 
   @Put('profile')
   @ApiOperation({ summary: 'Update user profile' })
-  async updateProfile(@Req() req, @Body() dto: UpdateProfileDto) {
-    const userId = req.user.userId;
+  async updateProfile(@CurrentUser() user, @Body() dto: UpdateProfileDto) {
+    const userId = user.userId;
     return this.userService.updateProfile(userId, dto);
   }
 
@@ -81,5 +82,11 @@ export class UserController {
       message: 'Cập nhật ảnh đại diện thành công!',
       avatar: avatarUrl,
     };
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Get user by ID' })
+  async getUser(@Param('id') id: string) {
+    return this.userService.findById(id);
   }
 }

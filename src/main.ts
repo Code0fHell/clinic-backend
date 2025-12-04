@@ -14,11 +14,11 @@ async function bootstrap() {
     origin: ['http://localhost:5173'],
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
-    allowedHeaders: 'Content-Type, Authorization, X-Requested-With, Accept',
+    allowedHeaders: "Content-Type, Authorization, X-Requested-With, Accept",
   });
 
-  app.useStaticAssets(join(__dirname, '..', 'uploads'), {
-    prefix: '/static/',
+  app.useStaticAssets(join(__dirname, "..", "uploads"), {
+    prefix: "/static/",
   });
 
   const config = new DocumentBuilder()
@@ -43,7 +43,13 @@ async function bootstrap() {
   );
   app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
   app.useGlobalFilters(new AllExceptionsFilter());
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }));
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      transform: true,
+      forbidNonWhitelisted: true
+    })
+  );
   await app.listen(3000);
 }
 bootstrap();

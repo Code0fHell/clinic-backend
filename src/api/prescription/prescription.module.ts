@@ -6,9 +6,11 @@ import { Patient } from 'src/shared/entities/patient.entity';
 import { Staff } from 'src/shared/entities/staff.entity';
 import { MedicalRecord } from 'src/shared/entities/medical-record.entity';
 import { TypeOrmModule } from '@nestjs/typeorm/dist/typeorm.module';
+import { Medicine } from 'src/shared/entities/medicine.entity';
+import { PrescriptionDetail } from 'src/shared/entities/prescription-detail.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Prescription, Patient, Staff, MedicalRecord])],
+  imports: [TypeOrmModule.forFeature([Prescription, Patient, Staff, MedicalRecord, Medicine, PrescriptionDetail])],
   controllers: [PrescriptionController],
   providers: [PrescriptionService],
   exports: [PrescriptionService],

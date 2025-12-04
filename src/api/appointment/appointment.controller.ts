@@ -9,6 +9,7 @@ import {
     Put,
     HttpCode,
     HttpStatus,
+    NotFoundException,
 } from "@nestjs/common";
 import { AppointmentService } from "./appointment.service";
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse } from "@nestjs/swagger";
@@ -37,8 +38,8 @@ export class AppointmentController {
     @UseGuards(JwtAuthGuard, RolesGuard)
     @ApiOperation({ summary: "Book an appointment" })
     async bookAppointment(@Req() req, @Body() dto: BookAppointmentDto) {
-        const patientId = req.user.userId;
-        return this.appointmentService.bookAppointment(patientId, dto);
+        const userId = req.user.userId;
+        return this.appointmentService.bookAppointment(userId, dto);
     }
 
     @Post("guest-book") // Api dành cho khách hàng không đăng nhập
@@ -50,13 +51,18 @@ export class AppointmentController {
     @Get("all") // API lấy tất cả cuộc hẹn
     @ApiOperation({ summary: "Get all appointments" })
     async getAllAppointments() {
-    return this.appointmentService.getAllAppointments();
+        return this.appointmentService.getAllAppointments();
     }
 
     @Get("today") // API lấy ra cuộc hẹn trong ngày dành cho bác sĩ
-    @ApiOperation({ summary: "Get today's appointments" })
-    async getTodayAppointments() {
-    return this.appointmentService.getTodayAppointments();
+    @UseGuards(JwtAuthGuard)
+    @ApiOperation({
+        summary: "Get today's appointments for the authenticated doctor",
+    })
+    async getTodayAppointments(@Req() req) {
+        const userId = req.user.userId;
+        // Find the staff/doctor associated with this user
+        return this.appointmentService.getTodayAppointments(userId);
     }
 
     @Get("week")

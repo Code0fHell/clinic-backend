@@ -14,6 +14,13 @@ export class UserService {
     return this.userRepository.findOne({ where: { username } });
   }
 
+  async getProfile(userId: string) {
+    return this.userRepository.findOne({
+      where: { id: userId },
+      relations: ["patient"],
+    });
+  }
+
   async findByUsernameOrEmail(username: string, email: string) {
     return this.userRepository.findOne({ where: [{ username }, { email }] });
   }

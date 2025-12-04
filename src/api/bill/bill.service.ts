@@ -55,8 +55,13 @@ export class BillService {
             if (!medicalTicket)
                 throw new NotFoundException("Medical ticket not found");
 
-            doctor = medicalTicket.assigned_doctor_id;
-            // total = medicalTicket.clinical_fee || 0;
+            doctor = medicalTicket.assigned_doctor_id; 
+            total = Number(medicalTicket.clinical_fee || 0);
+            if (!total) {
+                throw new BadRequestException(
+                    "Medical ticket is missing clinical fee. Vui lòng cập nhật phí khám."
+                );
+            }
         }
         else if (dto.bill_type === BillType.SERVICE) {
             // Hóa đơn dịch vụ cận lâm sàng
@@ -72,13 +77,22 @@ export class BillService {
             // Hóa đơn thuốc
             prescription = await this.prescriptionRepository.findOne({
                 where: { id: dto.prescription_id },
-                relations: ["doctor"],
+                relations: ["doctor", "details", "details.medicine"],
             });
             if (!prescription)
                 throw new NotFoundException("Prescription not found");
             doctor = prescription.doctor;
-            // Tính toán tổng tiền thuốc
-            // total = prescription.total_price || 0;
+            total = Number(prescription.total_fee || 0);
+            if (!total && prescription.details?.length) {
+                total = prescription.details.reduce((sum, detail) => {
+                    const price = Number(detail.medicine?.price || 0);
+                    return sum + price * detail.quantity;
+                }, 0);
+            }
+
+            if (!total) {
+                throw new BadRequestException("Prescription does not contain any fee information");
+            }
         } else {
             throw new BadRequestException("Invalid bill type");
         }

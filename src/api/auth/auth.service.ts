@@ -38,16 +38,14 @@ export class AuthService {
       user_role: UserRole.PATIENT,
     });
 
-    // Tạo patient và ánh xạ thông tin từ registerDto
-    const patient = this.patientRepository.create({
-      user: user,
+    const patient = this.patientRepository.create({ 
+      user,
       patient_full_name: registerDto.full_name,
       patient_phone: registerDto.phone,
       patient_address: registerDto.address,
       patient_dob: registerDto.date_of_birth,
       patient_gender: registerDto.gender
     });
-
     await this.patientRepository.save(patient);
 
     return { message: 'Registration successful', userId: user.id };

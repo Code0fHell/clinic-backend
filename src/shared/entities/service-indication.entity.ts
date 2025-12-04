@@ -20,4 +20,7 @@ export class ServiceIndication {
 
   @Column({ type: 'int', nullable: false })
   queue_number: number;
+
+  @Column({ type: "timestamp", default: () => "CURRENT_TIMESTAMP" })
+  created_at: Date;
 }

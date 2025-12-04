@@ -9,7 +9,7 @@ import { UserRole } from 'src/shared/enums/user-role.enum';
 import { Roles } from 'src/common/guards/roles.decorator';
 
 @ApiTags('prescription-detail')
-@Controller('prescription-detail')
+@Controller('api/v1/prescription-detail')
 export class PrescriptionDetailController {
   constructor(private readonly prescriptionDetailService: PrescriptionDetailService) {}
 
