@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { Injectable, NotFoundException, BadRequestException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Payment } from "../../shared/entities/payment.entity";
 import { Bill } from "../../shared/entities/bill.entity";
@@ -7,140 +7,182 @@ import { Repository } from "typeorm";
 import { GeneratePaymentQRDto } from "./dto/generate-payment-qr.dto";
 import { PaymentStatus } from "../../shared/enums/payment-status.enum";
 import { PaymentMethod } from "../../shared/enums/payment-method.enum";
-import * as QRCode from "qrcode";
 import { Patient } from "../../shared/entities/patient.entity";
-import crypto from "crypto";
+import axios from "axios";
+import { generateSignature } from './payos-utils';
+import { verifyWebhookSignature } from "./verifyWebhookSignature";
 
 @Injectable()
 export class PaymentService {
-    constructor(
-        @InjectRepository(Payment)
-        private readonly paymentRepository: Repository<Payment>,
-        @InjectRepository(Bill)
-        private readonly billRepository: Repository<Bill>,
-        @InjectRepository(User)
-        private readonly userRepository: Repository<User>,
-        @InjectRepository(Patient)
-        private readonly patientRepository: Repository<Patient>
-    ) {}
+  private readonly PAYOS_CLIENT_ID = process.env.PAYOS_CLIENT_ID!;
+  private readonly PAYOS_API_KEY = process.env.PAYOS_API_KEY!;
+  private readonly PAYOS_CHECKSUM_KEY = process.env.PAYOS_CHECKSUM_KEY!;
+  private readonly PAYOS_BASE_URL = `https://api-merchant.payos.vn/v2/payment-requests`;
 
-    async createVietQRPayment(dto: GeneratePaymentQRDto) {
-        const bill = await this.billRepository.findOne({
-            where: { id: dto.bill_id },
-            relations: ["patient", "patient.user"],
-        });
-        if (!bill) throw new NotFoundException("Bill not found");
+  constructor(
+    @InjectRepository(Payment)
+    private readonly paymentRepository: Repository<Payment>,
+    @InjectRepository(Bill)
+    private readonly billRepository: Repository<Bill>,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
+    @InjectRepository(Patient)
+    private readonly patientRepository: Repository<Patient>
+  ) { }
 
-        const patient = bill.patient;
-        if (!patient) throw new NotFoundException("Patient not found");
+  async createVietQRPayment(dto: GeneratePaymentQRDto) {
+    const bill = await this.billRepository.findOne({
+      where: { id: dto.bill_id },
+      relations: ['patient', 'patient.user'],
+    });
 
-        // Nếu bệnh nhân có tài khoản thì dùng user, nếu không thì lưu trực tiếp patient
-        const payment = this.paymentRepository.create({
-            bill,
-            amount: dto.amount,
-            payment_method: PaymentMethod.BANK_TRANSFER,
-            payment_status: PaymentStatus.PENDING,
-            paidByUser: patient.user || null,
-            paidByPatient: patient.user ? null : patient,
-        });
-        await this.paymentRepository.save(payment);
+    if (!bill) throw new NotFoundException('Bill not found');
+    if (!bill.patient) throw new NotFoundException('Patient not found');
 
-        // VietQR config
-        const bankNumber = process.env.VIETQR_BANK_NUMBER!;
-        const bankCode = process.env.VIETQR_BANK_CODE!;
-        console.log("Bank Code:", bankCode);
-        const accountName = process.env.VIETQR_ACCOUNT_NAME!;
-        const template = process.env.VIETQR_TEMPLATE || "compact";
-        const amount = dto.amount;
-        const addInfo = `Thanh toan hoa don ${bill.id}`;
+    const payment = this.paymentRepository.create({
+      bill,
+      amount: dto.amount,
+      payment_method: PaymentMethod.BANK_TRANSFER,
+      payment_status: PaymentStatus.PENDING,
+      paidByUser: bill.patient.user || null,
+      paidByPatient: bill.patient.user ? null : bill.patient,
+    });
 
-        const vietqrUrl = `https://img.vietqr.io/image/${bankCode}-${bankNumber}-${template}.png?amount=${amount}&addInfo=${encodeURIComponent(addInfo)}&accountName=${encodeURIComponent(accountName)}`;
+    await this.paymentRepository.save(payment);
 
-        const qrCodeBase64 = await QRCode.toDataURL(vietqrUrl);
-
-        return {
-            paymentId: payment.id,
-            vietqrUrl,
-            qrCode: qrCodeBase64,
-            amount,
-            bill_id: bill.id,
-            bankNumber,
-            bankCode,
-            accountName,
-            addInfo,
-        };
+    // ÉP SỐ NGUYÊN
+    const amount = Math.floor(Number(dto.amount));
+    if (isNaN(amount) || amount <= 0) {
+      throw new BadRequestException('Số tiền không hợp lệ');
     }
 
-    async handleVietQRWebhook(body: any) {
-      if (!body) {
-        return { success: false, message: 'Empty body' };
+    // Tạo orderCode chuẩn format PayOS
+    const orderCode = Number(
+      Date.now().toString().slice(-10) +
+      String(Math.floor(Math.random() * 99)).padStart(2, '0')
+    );
+
+    const body = {
+      orderCode,
+      amount,
+      description: `Thanh toan hoa don`,
+      returnUrl: 'https://example.com/return',
+      cancelUrl: 'https://example.com/cancel',
+    };
+
+    // ---  Tạo signature CHUẨN PayOS ---
+    const signature = generateSignature(body, this.PAYOS_CHECKSUM_KEY);
+
+    // console.log("Body gửi PayOS:", JSON.stringify(body, null, 2));
+    // console.log("Signature:", signature);
+
+    const response = await axios.post(
+      this.PAYOS_BASE_URL,
+      { ...body, signature },
+      {
+        headers: {
+          'x-client-id': this.PAYOS_CLIENT_ID,
+          'x-api-key': this.PAYOS_API_KEY,
+        }
       }
+    );
 
-      // Log dữ liệu để debug
-      console.log("Webhook payload:", body);
+    // console.log("PayOS Response:", JSON.stringify(response.data, null, 2));
 
-      const orderCode = body.orderCode || body.order_code || body.order_id || body.paymentId;
-      const amount = body.amount || body.total_amount;
-      const status = body.status || body.transaction_status;
-      const description = body.description || body.addInfo;
-      const transactionDateTime = body.transactionDateTime || body.dateTime;
-      const checksum = body.checksum || body.signature;
-
-      if (!orderCode || !amount) {
-        return { success: false, message: 'Missing required fields' };
-      }
-
-      const CHECKSUM_KEY = process.env.PAYOS_CHECKSUM_KEY || '';
-      const rawString = `${orderCode}${amount}${status}${description}${transactionDateTime}${CHECKSUM_KEY}`;
-      const hash = crypto.createHash('sha256').update(rawString).digest('hex');
-
-      if (hash !== checksum) {
-        return { success: false, message: 'Invalid checksum' };
-      }
-
-      const payment = await this.paymentRepository.findOne({
-        where: { id: orderCode },
-        relations: ['bill'],
-      });
-      if (!payment) return { success: false, message: 'Payment not found' };
-
-      if (status === 'PAID' || status === 'SUCCESS') {
-        payment.payment_status = PaymentStatus.SUCCESS;
-        await this.paymentRepository.save(payment);
-
-        payment.bill.total = Number(payment.bill.total) + Number(amount);
-        await this.billRepository.save(payment.bill);
-
-        return { success: true, message: 'Payment updated to SUCCESS' };
-      } else if (status === 'CANCELLED' || status === 'FAILED') {
-        payment.payment_status = PaymentStatus.FAILED;
-        await this.paymentRepository.save(payment);
-        return { success: true, message: 'Payment updated to FAILED' };
-      }
-
-      return { success: false, message: 'Unknown status' };
+    if (response.data.code !== "00" || !response.data.data) {
+      throw new BadRequestException(`PayOS Error: ${JSON.stringify(response.data)}`);
     }
 
-    async createCashPayment(dto: GeneratePaymentQRDto) {
-        const bill = await this.billRepository.findOne({
-            where: { id: dto.bill_id },
-            relations: ["patient", "patient.user"],
-        });
-        if (!bill) throw new NotFoundException("Bill not found");
+    const data = response.data.data;
 
-        const patient = bill.patient;
-        if (!patient) throw new NotFoundException("Patient not found");
+    payment.transaction_id = orderCode.toString();
+    await this.paymentRepository.save(payment);
 
-        // Nếu bệnh nhân có tài khoản thì dùng user, nếu không thì lưu trực tiếp patient
-        const payment = this.paymentRepository.create({
-            bill,
-            amount: dto.amount ?? bill.total,
-            payment_method: PaymentMethod.CASH,
-            payment_status: PaymentStatus.SUCCESS,
-            paidByUser: patient.user || null,
-            paidByPatient: patient.user ? null : patient,
-        });
-        return await this.paymentRepository.save(payment);
+    return {
+      paymentId: payment.id,
+      orderCode,
+      checkoutUrl: data.checkoutUrl,
+      qrCode: data.qrCode,
+      amount,
+      bill_id: bill.id,
+      message: 'QR VietQR đã tạo thành công!',
+    };
+  }
+
+  async getPaymentStatus(orderCode: string) {
+    const payment = await this.paymentRepository.findOne({
+      where: { transaction_id: orderCode },
+    });
+
+    if (!payment) {
+      throw new NotFoundException('Payment not found');
     }
+
+    return {
+      paymentId: payment.id,
+      orderCode,
+      payment_status: payment.payment_status,
+      amount: payment.amount,
+      payment_method: payment.payment_method,
+      paid_at: payment.paid_at,
+    };
+  }
+
+  async handleVietQRWebhook(rawBody: string) {
+    // console.log("RAW BODY RECEIVED IN SERVICE:", rawBody);
+
+    const verify = verifyWebhookSignature(rawBody, this.PAYOS_CHECKSUM_KEY);
+    // console.log("VERIFY RESULT:", verify);
+
+    if (!verify.success) {
+      // console.log("VERIFY FAILED:", verify.message);
+      return { success: false, message: verify.message };
+    }
+
+    // console.log("VERIFY OK");
+
+    const body = verify.body;
+    const orderCode = body.data.orderCode.toString();
+
+    const payment = await this.paymentRepository.findOne({
+      where: { transaction_id: orderCode }
+    });
+
+    if (!payment) {
+      return { success: false, message: 'Payment not found' };
+    }
+
+    if (payment.payment_status === PaymentStatus.SUCCESS) {
+      return { success: true, message: 'Already processed' };
+    }
+
+    payment.payment_status = PaymentStatus.SUCCESS;
+    payment.paid_at = new Date();
+    await this.paymentRepository.save(payment);
+
+    return { success: true, message: 'Payment confirmed!' };
+  }
+
+  async createCashPayment(dto: GeneratePaymentQRDto) {
+    const bill = await this.billRepository.findOne({
+      where: { id: dto.bill_id },
+      relations: ["patient", "patient.user"],
+    });
+    if (!bill) throw new NotFoundException("Bill not found");
+
+    const patient = bill.patient;
+    if (!patient) throw new NotFoundException("Patient not found");
+
+    // Nếu bệnh nhân có tài khoản thì dùng user, nếu không thì lưu trực tiếp patient
+    const payment = this.paymentRepository.create({
+      bill,
+      amount: dto.amount ?? bill.total,
+      payment_method: PaymentMethod.CASH,
+      payment_status: PaymentStatus.SUCCESS,
+      paidByUser: patient.user || null,
+      paidByPatient: patient.user ? null : patient,
+    });
+    return await this.paymentRepository.save(payment);
+  }
 
 }
