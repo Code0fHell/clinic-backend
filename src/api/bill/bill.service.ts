@@ -13,6 +13,8 @@ import { Prescription } from "../../shared/entities/prescription.entity";
 import { BillType } from "../../shared/enums/bill-type.enum";
 import { Repository } from "typeorm";
 import { CreateBillDto } from "./dto/create-bill.dto";
+import { Between } from 'typeorm';
+
 
 @Injectable()
 export class BillService {
@@ -93,5 +95,44 @@ export class BillService {
         } as Partial<Bill>);
 
         return this.billRepository.save(bill);
+    }
+
+    // Lấy tất cả Bill theo ngày
+    async getAllBillToday(user: any) {
+        const now = new Date();
+        const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+        const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+
+        const bills = await this.billRepository
+            .createQueryBuilder('bill')
+            .leftJoinAndSelect('bill.payments', 'payment')       // lấy payment nếu có
+            .leftJoinAndSelect('bill.patient', 'patient')       // lấy patient
+            .where('bill.created_at BETWEEN :start AND :end', { start, end })
+            .orderBy('bill.created_at', 'DESC')
+            .getMany();
+
+        return bills.map(bill => ({
+            id: bill.id,
+            total: bill.total,
+            bill_type: bill.bill_type,
+            created_at: bill.created_at,
+            createdByName: user?.full_name,
+            patient_name: bill.patient ? bill.patient.patient_full_name : null, // thêm tên bệnh nhân
+            payment_status: bill.payments.length > 0
+                ? bill.payments.map(p => p.payment_status)
+                : null,
+        }));
+    }
+
+    // Lấy ra chi tiết thông tin bill
+    async getDetailBill(billId: string) {
+        const bill = await this.billRepository.findOne({
+            where: { id: billId }
+        });
+
+        return {
+            id: billId,
+            total: bill?.total
+        }
     }
 }
