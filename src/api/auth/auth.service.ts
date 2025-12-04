@@ -38,7 +38,7 @@ export class AuthService {
       user_role: UserRole.PATIENT,
     });
 
-    const patient = this.patientRepository.create({ 
+    const patient = this.patientRepository.create({
       user,
       patient_full_name: registerDto.full_name,
       patient_phone: registerDto.phone,
@@ -73,6 +73,7 @@ export class AuthService {
       user: {
         id: user.id,
         username: user.username,
+        full_name: user.full_name,
         email: user.email,
         avatar: user.avatar,
         role: user.user_role,
