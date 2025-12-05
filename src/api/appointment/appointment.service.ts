@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import {
+    Injectable,
+    NotFoundException,
+    Inject,
+    forwardRef,
+} from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { WorkScheduleDetail } from "../../shared/entities/work-schedule-detail.entity";
 import { Repository, Between } from "typeorm";
@@ -11,6 +16,7 @@ import { Session } from "src/shared/enums/session.enum";
 import { User } from "src/shared/entities/user.entity";
 import { GuestBookAppointmentDto } from "./dto/guest-book-appointment.dto";
 import { UserRole } from "src/shared/enums/user-role.enum";
+import { NotificationService } from "../notification/notification.service";
 import dayjs from "dayjs";
 @Injectable()
 export class AppointmentService {
@@ -24,19 +30,23 @@ export class AppointmentService {
         @InjectRepository(Appointment)
         private readonly appointmentRepository: Repository<Appointment>,
         @InjectRepository(User)
-        private readonly userRepository: Repository<User>
+        private readonly userRepository: Repository<User>,
+        @Inject(forwardRef(() => NotificationService))
+        private readonly notificationService: NotificationService
     ) {}
 
     async getUserWithStaff(userId: string) {
         const user = await this.userRepository.findOne({
             where: { id: userId },
-            relations: ['staff'],
+            relations: ["staff"],
         });
-        
+
         if (!user || !user.staff) {
-            throw new NotFoundException('This user is not a doctor or does not have staff profile');
+            throw new NotFoundException(
+                "This user is not a doctor or does not have staff profile"
+            );
         }
-        
+
         return user.staff.id;
     }
 
@@ -89,6 +99,19 @@ export class AppointmentService {
         });
         await this.appointmentRepository.save(appointment);
 
+        // Create notification for patient
+        try {
+            await this.notificationService.createAppointmentNotification(
+                userId,
+                appointment.id,
+                slot.slot_start,
+                appointment.status
+            );
+        } catch (error) {
+            console.error("Failed to create notification:", error);
+            // Don't fail the appointment creation if notification fails
+        }
+
         return { message: "Appointment booked", appointmentId: appointment.id };
     }
 
@@ -133,10 +156,28 @@ export class AppointmentService {
             appointment_date: new Date(),
             scheduled_date: slot.slot_start,
             reason: dto.reason,
-            session: slot.slot_start.getHours() < 12 ? Session.MORNING : Session.AFTERNOON,
+            session:
+                slot.slot_start.getHours() < 12
+                    ? Session.MORNING
+                    : Session.AFTERNOON,
             status: AppointmentStatus.PENDING,
         });
         await this.appointmentRepository.save(appointment);
+
+        // Create notification for guest patient (if user exists)
+        if (patient.user) {
+            try {
+                await this.notificationService.createAppointmentNotification(
+                    patient.user.id,
+                    appointment.id,
+                    slot.slot_start,
+                    appointment.status
+                );
+            } catch (error) {
+                console.error("Failed to create notification:", error);
+                // Don't fail the appointment creation if notification fails
+            }
+        }
 
         return { message: "Appointment booked", appointmentId: appointment.id };
     }
@@ -152,31 +193,34 @@ export class AppointmentService {
     // Lấy ra cuộc hẹn trong ngày của bác sĩ
     async getTodayAppointments(userId: string) {
         const staffId = await this.getUserWithStaff(userId);
-    
+
         const startOfDay = dayjs().startOf("day").toDate();
         const endOfDay = dayjs().endOf("day").toDate();
-    
+
         return this.appointmentRepository.find({
             where: {
-            appointment_date: Between(startOfDay, endOfDay),
+                appointment_date: Between(startOfDay, endOfDay),
+                doctor: { id: staffId },
             },
             relations: [
-                "doctor", 
-                "doctor.user", 
-                "patient", 
-                "schedule_detail", 
-                "patient.user"
+                "doctor",
+                "doctor.user",
+                "patient",
+                "schedule_detail",
+                "patient.user",
             ],
             order: { scheduled_date: "ASC" },
         });
     }
-    
 
-    async updateAppointmentStatus(appointmentId: string, status: AppointmentStatus) {
+    async updateAppointmentStatus(
+        appointmentId: string,
+        status: AppointmentStatus
+    ) {
         try {
             const appointment = await this.appointmentRepository.findOne({
-                where: { id: appointmentId }
-            })
+                where: { id: appointmentId },
+            });
 
             if (!appointment) {
                 throw new Error("Appointment not found");
@@ -188,14 +232,18 @@ export class AppointmentService {
                 message: "Appointment status updated",
                 status: appointment.status,
             };
-        } catch (error) {
+        } catch (error: unknown) {
+            let errMsg = "Unknown error";
+            if (error instanceof Error) {
+                errMsg = error.message;
+            }
             return {
                 message: "Failed to update appointment status",
-                error: error.message,
+                error: errMsg,
             };
         }
     }
-    
+
     // Lấy lịch hẹn trong tuần
     async getAppointmentsThisWeek() {
         const startOfWeekDate = dayjs().startOf("week").add(1, "day").toDate(); // Thứ 2
