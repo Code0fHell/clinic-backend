@@ -19,6 +19,7 @@ import { PaymentModule } from "./api/payment/payment.module";
 import { MedicalRecordModule } from "./api/medical-record/medical-record.module";
 import { PrescriptionModule } from "./api/prescription/prescription.module";
 import { PrescriptionDetailModule } from "./api/prescription-detail/prescription-detail.module";
+import { NotificationModule } from "./api/notification/notification.module";
 
 @Module({
     imports: [
@@ -60,7 +61,8 @@ import { PrescriptionDetailModule } from "./api/prescription-detail/prescription
         PaymentModule,
         MedicalRecordModule,
         PrescriptionModule,
-        PrescriptionDetailModule
+        PrescriptionDetailModule,
+        NotificationModule
     ],
     controllers: [],
     providers: [],

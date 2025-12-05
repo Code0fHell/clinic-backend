@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppointmentController } from './appointment.controller';
 import { Appointment } from 'src/shared/entities/appointment.entity';
@@ -7,9 +7,13 @@ import { WorkScheduleDetail } from 'src/shared/entities/work-schedule-detail.ent
 import { Staff } from 'src/shared/entities/staff.entity';
 import { Patient } from 'src/shared/entities/patient.entity';
 import { User } from 'src/shared/entities/user.entity';
+import { NotificationModule } from '../notification/notification.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Appointment, WorkScheduleDetail, Staff, Patient, User])],
+  imports: [
+    TypeOrmModule.forFeature([Appointment, WorkScheduleDetail, Staff, Patient, User]),
+    forwardRef(() => NotificationModule),
+  ],
   providers: [AppointmentService],
   controllers: [AppointmentController],
   exports: [AppointmentService],
