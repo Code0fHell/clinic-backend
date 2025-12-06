@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEnum, IsNotEmpty, IsNumber, IsPositive, IsString, IsUUID } from 'class-validator';
+import { IsEnum, IsNotEmpty, IsNumber, IsOptional, IsPositive, IsString, IsUUID } from 'class-validator';
 import { ServiceType } from '../../../shared/enums/service-type.enum';
 
 export class CreateMedicalServiceDto {
@@ -10,6 +10,15 @@ export class CreateMedicalServiceDto {
   @IsNotEmpty({ message: 'Tên dịch vụ không được để trống' })
   @IsString({ message: 'Tên dịch vụ phải là chuỗi' })
   service_name: string;
+
+  @ApiProperty({
+    example: 'Chụp X-quang ngực thẳng để chẩn đoán các bệnh lý về phổi và tim',
+    description: 'Mô tả dịch vụ y tế',
+    required: false,
+  })
+  @IsOptional()
+  @IsString({ message: 'Mô tả phải là chuỗi' })
+  description?: string;
 
   @ApiProperty({
     enum: ServiceType,

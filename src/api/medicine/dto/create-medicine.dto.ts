@@ -19,6 +19,15 @@ export class CreateMedicineDto {
   name: string;
 
   @ApiProperty({
+    description: 'URL hình ảnh thuốc',
+    required: false,
+    example: '/uploads/medicines/paracetamol.jpg',
+  })
+  @IsString({ message: 'URL hình ảnh phải là chuỗi' })
+  @IsOptional()
+  image?: string;
+
+  @ApiProperty({
     description: 'Mô tả hoặc hướng dẫn sử dụng',
     required: false,
     example: 'Thuốc hạ sốt, giảm đau, dùng theo chỉ định của bác sĩ',

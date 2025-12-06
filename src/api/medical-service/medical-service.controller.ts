@@ -37,10 +37,22 @@ export class MedicalServiceController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'List all medical services' })
+  @ApiOperation({ summary: 'List all medical services with pagination and filtering' })
   @ApiResponse({ status: 200, type: [MedicalService] })
-  async findAll() {
-    const data = await this.medicalServiceService.findAll();
+  async findAll(
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+    @Query('service_type') service_type?: string,
+  ) {
+    const data = await this.medicalServiceService.findAll(page, limit, service_type);
+    return { success: true, data };
+  }
+
+  @Get('homepage')
+  @ApiOperation({ summary: 'Get services for homepage (max 3)' })
+  @ApiResponse({ status: 200, type: [MedicalService] })
+  async getHomepageServices(@Query('service_type') service_type?: string) {
+    const data = await this.medicalServiceService.findHomepageServices(service_type);
     return { success: true, data };
   }
 

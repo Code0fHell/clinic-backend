@@ -11,6 +11,9 @@ export class MedicalService {
   @Column()
   service_name: string;
 
+  @Column({ type: 'text', nullable: true })
+  description: string;
+
   @Column({ type: 'enum', enum: ServiceType, default: ServiceType.EXAMINATION })
   service_type: ServiceType;
 

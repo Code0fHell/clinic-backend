@@ -43,8 +43,14 @@ export class MedicineService {
   }
 
   //  Lấy danh sách thuốc
-  async findAll() {
-    const medicines = await this.medicineRepository.find();
+  async findAll(category?: string) {
+    const queryBuilder = this.medicineRepository.createQueryBuilder('medicine');
+    
+    if (category && category.trim() !== '') {
+      queryBuilder.where('medicine.category = :category', { category });
+    }
+
+    const medicines = await queryBuilder.getMany();
     if (!medicines.length)
       throw new NotFoundException('Chưa có thuốc nào trong hệ thống');
     return {

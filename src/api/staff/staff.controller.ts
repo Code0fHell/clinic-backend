@@ -24,6 +24,14 @@ export class StaffController {
     return this.staffService.findDoctorsByType(DoctorType.CLINICAL);
   }
 
+  // Lấy danh sách bác sĩ cho trang chủ (tối đa 3)
+  @Get('homepage-doctors')
+  @ApiOperation({ summary: 'Get doctors for homepage (max 3)' })
+  async getHomepageDoctors() {
+    const data = await this.staffService.findHomepageDoctors();
+    return { success: true, data };
+  }
+
   // Lấy lịch làm việc của bác sĩ
   @Get(':id/work-schedules')
   @ApiOperation({ summary: 'Get work schedules of a doctor' })
