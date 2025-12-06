@@ -20,6 +20,9 @@ export class Staff {
   @Column({ nullable: true })
   position: string;
 
+  @Column({ type: 'text', nullable: true })
+  specialty: string;
+
   @Column({ nullable: true })
   license_number: string;
 

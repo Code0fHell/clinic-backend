@@ -30,9 +30,9 @@ export class MedicineController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'Get all medicines' })
-  findAll() {
-    return this.medicineService.findAll();
+  @ApiOperation({ summary: 'Get all medicines with optional filtering' })
+  findAll(@Query('category') category?: string) {
+    return this.medicineService.findAll(category);
   }
 
   @Get(':id')

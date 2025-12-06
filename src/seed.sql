@@ -1,8 +1,5 @@
--- MySQL dump 10.13  Distrib 8.0.34, for Win64 (x86_64)
---
--- Host: localhost    Database: clinic_management
--- ------------------------------------------------------
--- Server version	8.0.34
+CREATE DATABASE IF NOT EXISTS clinic_management;
+USE clinic_management;
 
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
@@ -187,9 +184,10 @@ DROP TABLE IF EXISTS `medical_service`;
 CREATE TABLE `medical_service` (
   `id` char(36) NOT NULL,
   `service_name` varchar(255) NOT NULL,
-  `service_type` enum('EXAMINATION','TEST','IMAGING','OTHER') DEFAULT 'EXAMINATION',
+  `service_type` enum('EXAMINATION','TEST','IMAGING','OTHER') CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'EXAMINATION',
   `service_price` decimal(12,2) DEFAULT NULL,
   `room_id` char(36) DEFAULT NULL,
+  `description` text,
   PRIMARY KEY (`id`),
   KEY `room_id` (`room_id`),
   CONSTRAINT `medical_service_ibfk_1` FOREIGN KEY (`room_id`) REFERENCES `room` (`id`)
@@ -236,6 +234,7 @@ CREATE TABLE `medicine` (
   `manufacturer` varchar(255) DEFAULT NULL,
   `expiry_date` date DEFAULT NULL,
   `description` text,
+  `image` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -422,6 +421,7 @@ CREATE TABLE `staff` (
   `doctor_type` enum('CLINICAL','DIAGNOSTIC','LAB') DEFAULT NULL,
   `is_available` tinyint(1) DEFAULT '1',
   `room_id` char(36) DEFAULT NULL,
+  `specialty` text,
   PRIMARY KEY (`id`),
   UNIQUE KEY `user_id` (`user_id`),
   KEY `fk_staff_room` (`room_id`),
@@ -537,4 +537,4 @@ CREATE TABLE `work_schedule_detail` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-12-05 15:25:06
+-- Dump completed on 2025-12-06 21:22:53

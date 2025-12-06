@@ -93,4 +93,16 @@ export class StaffService {
       order: { work_date: 'ASC' },
     });
   }
+
+  // Lấy danh sách bác sĩ cho trang chủ (tối đa 3)
+  async findHomepageDoctors() {
+    return this.staffRepository.find({
+      where: { 
+        doctor_type: DoctorType.CLINICAL,
+        is_available: true 
+      },
+      relations: ['user'],
+      take: 3,
+    });
+  }
 }

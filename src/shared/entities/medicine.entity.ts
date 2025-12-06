@@ -10,6 +10,9 @@ export class Medicine {
   name: string;
 
   @Column({ nullable: true })
+  image: string;
+
+  @Column({ nullable: true })
   description: string;
 
   @Column({ type: 'decimal', precision: 12, scale: 2 })

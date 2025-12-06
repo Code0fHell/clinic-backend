@@ -12,6 +12,14 @@ export class UpdateMedicalServiceDto {
   service_name?: string;
 
   @ApiPropertyOptional({
+    example: 'Xét nghiệm máu tổng quát để kiểm tra các chỉ số sức khỏe cơ bản',
+    description: 'Mô tả dịch vụ y tế (tùy chọn)',
+  })
+  @IsOptional()
+  @IsString({ message: 'Mô tả phải là chuỗi' })
+  description?: string;
+
+  @ApiPropertyOptional({
     enum: ServiceType,
     example: ServiceType.TEST,
     description: 'Loại dịch vụ (tùy chọn)',
