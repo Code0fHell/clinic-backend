@@ -10,6 +10,7 @@ import { Patient } from './patient.entity';
 import { Staff } from './staff.entity';
 import { PrescriptionDetail } from './prescription-detail.entity';
 import { MedicalRecord } from './medical-record.entity';
+import { PrescriptionStatus } from '../enums/prescription-status.enum';
 
 @Entity()
 export class Prescription {
@@ -45,4 +46,18 @@ export class Prescription {
 
   @Column({ type: 'decimal', precision: 12, scale: 2 })
   total_fee: number;
+
+  @Column({ 
+    type: 'enum', 
+    enum: PrescriptionStatus, 
+    default: PrescriptionStatus.PENDING 
+  })
+  status: PrescriptionStatus;
+
+  @ManyToOne(() => Staff, { nullable: true })
+  @JoinColumn({ name: 'approved_by' })
+  approved_by?: Staff | null;
+
+  @Column({ type: 'datetime', nullable: true })
+  approved_at?: Date | null;
 }

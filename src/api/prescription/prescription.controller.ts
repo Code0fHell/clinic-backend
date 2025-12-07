@@ -1,7 +1,8 @@
-import { Controller, Get, Post, Body, Param, Put, Delete, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Put, Delete, UseGuards, Req } from '@nestjs/common';
 import { PrescriptionService } from './prescription.service';
 import { CreatePrescriptionDto } from './dto/create-prescription.dto';
 import { UpdatePrescriptionDto } from './dto/update-prescription.dto';
+import { ApprovePrescriptionDto } from './dto/approve-prescription.dto';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { RolesGuard } from 'src/common/guards/roles.guard';
 import { AuthGuard } from '@nestjs/passport/dist/auth.guard';
@@ -66,5 +67,34 @@ export class PrescriptionController {
   @Roles(UserRole.DOCTOR, UserRole.OWNER)
   remove(@Param('id') id: string) {
     return this.prescriptionService.remove(id);
+  }
+
+  @Get('pending/list')
+  @ApiOperation({ summary: 'Get pending prescriptions for pharmacist' })
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.PHARMACIST, UserRole.OWNER)
+  getPendingPrescriptions() {
+    return this.prescriptionService.findPendingPrescriptions();
+  }
+
+  @Put(':id/approve')
+  @ApiOperation({ summary: 'Approve prescription by pharmacist' })
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.PHARMACIST, UserRole.OWNER)
+  async approve(@Param('id') id: string, @Body() dto: ApprovePrescriptionDto, @Req() req) {
+    const userId = req.user.id;
+    return this.prescriptionService.approvePrescription(id, userId);
+  }
+
+  @Get('pharmacist/recent-activity')
+  @ApiOperation({ summary: 'Get recent approved prescriptions by pharmacist' })
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.PHARMACIST, UserRole.OWNER)
+  async getRecentActivity(@Req() req) {
+    const userId = req.user.id;
+    return this.prescriptionService.getRecentActivity(userId);
   }
 }
