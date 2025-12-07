@@ -1,9 +1,11 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { Repository, In } from "typeorm";
 import { Notification } from "../../shared/entities/notification.entity";
 import { User } from "../../shared/entities/user.entity";
 import { Appointment } from "../../shared/entities/appointment.entity";
+import { Staff } from "../../shared/entities/staff.entity";
+import { UserRole } from "../../shared/enums/user-role.enum";
 import { AppointmentStatus } from "../../shared/enums/appointment-status.enum";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
@@ -20,7 +22,9 @@ export class NotificationService {
         @InjectRepository(User)
         private readonly userRepository: Repository<User>,
         @InjectRepository(Appointment)
-        private readonly appointmentRepository: Repository<Appointment>
+        private readonly appointmentRepository: Repository<Appointment>,
+        @InjectRepository(Staff)
+        private readonly staffRepository: Repository<Staff>
     ) {}
 
     async createAppointmentNotification(
@@ -59,7 +63,24 @@ export class NotificationService {
         return await this.notificationRepository.save(notification);
     }
 
-    async getUserNotifications(userId: string) {
+    async getUserNotifications(userId: string, userRole?: string) {
+        // If user is PHARMACIST, only show PRESCRIPTION and OTHER notifications
+        // Don't show APPOINTMENT notifications
+        if (userRole === "PHARMACIST") {
+            return this.notificationRepository.find({
+                where: { 
+                    user: { id: userId },
+                    type: In(["PRESCRIPTION", "OTHER"])
+                },
+                relations: [
+                    "appointment",
+                    "appointment.doctor",
+                    "appointment.doctor.user",
+                ],
+                order: { created_at: "DESC" },
+            });
+        }
+        
         return this.notificationRepository.find({
             where: { user: { id: userId } },
             relations: [
@@ -94,6 +115,37 @@ export class NotificationService {
             { is_read: true }
         );
         return { message: "All notifications marked as read" };
+    }
+
+    async createPrescriptionNotification(
+        prescriptionId: string,
+        patientName: string,
+        doctorName: string
+    ) {
+        // Find all pharmacists
+        const pharmacists = await this.staffRepository.find({
+            where: { user: { user_role: UserRole.PHARMACIST } },
+            relations: ["user"],
+        });
+
+        if (!pharmacists || pharmacists.length === 0) {
+            return; // No pharmacists to notify
+        }
+
+        // Create notification for each pharmacist
+        const notifications = pharmacists.map((pharmacist) => {
+            return this.notificationRepository.create({
+                user: pharmacist.user,
+                appointment: null,
+                title: "Đơn thuốc mới",
+                message: `Có đơn thuốc mới từ bác sĩ ${doctorName} cho bệnh nhân ${patientName}. Mã đơn: ${prescriptionId.substring(0, 8)}...`,
+                type: "PRESCRIPTION",
+                is_read: false,
+            });
+        });
+
+        await this.notificationRepository.save(notifications);
+        return notifications;
     }
 
     private mapStatus(status: AppointmentStatus): string {

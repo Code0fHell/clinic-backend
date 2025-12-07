@@ -17,7 +17,7 @@ export class IndicationController {
   @ApiOperation({ summary: 'CLINICAL Doctor creates an indication ticket' })
   @Roles('DOCTOR')
   async createIndicationTicket(@Req() req, @Body() dto: CreateIndicationTicketDto) {
-    const userId = req.user.sub;
+    const userId = req.user.id;
     // Id là id của bác sĩ
     return this.indicationService.createIndicationTicket(userId, dto);
   }

@@ -21,15 +21,16 @@ export class NotificationController {
 
   @Get()
   @ApiOperation({ summary: 'Get all notifications for current user' })
-  @Roles('PATIENT', 'DOCTOR', 'RECEPTIONIST', 'OWNER')
+  @Roles('PATIENT', 'DOCTOR', 'RECEPTIONIST', 'PHARMACIST', 'OWNER')
   async getUserNotifications(@Req() req) {
-    const userId = req.user.sub;
-    return this.notificationService.getUserNotifications(userId);
+    const userId = req.user.sub || req.user.userId || req.user.id;
+    const userRole = req.user.role || req.user.user_role;
+    return this.notificationService.getUserNotifications(userId, userRole);
   }
 
   @Get('unread-count')
   @ApiOperation({ summary: 'Get unread notification count' })
-  @Roles('PATIENT', 'DOCTOR', 'RECEPTIONIST', 'OWNER')
+  @Roles('PATIENT', 'DOCTOR', 'RECEPTIONIST', 'PHARMACIST', 'OWNER')
   async getUnreadCount(@Req() req) {
     const userId = req.user.sub;
     const count = await this.notificationService.getUnreadCount(userId);
@@ -38,7 +39,7 @@ export class NotificationController {
 
   @Put(':id/read')
   @ApiOperation({ summary: 'Mark notification as read' })
-  @Roles('PATIENT', 'DOCTOR', 'RECEPTIONIST', 'OWNER')
+  @Roles('PATIENT', 'DOCTOR', 'RECEPTIONIST', 'PHARMACIST', 'OWNER')
   async markAsRead(@Param('id') notificationId: string, @Req() req) {
     const userId = req.user.sub;
     return this.notificationService.markAsRead(notificationId, userId);
@@ -46,7 +47,7 @@ export class NotificationController {
 
   @Put('read-all')
   @ApiOperation({ summary: 'Mark all notifications as read' })
-  @Roles('PATIENT', 'DOCTOR', 'RECEPTIONIST', 'OWNER')
+  @Roles('PATIENT', 'DOCTOR', 'RECEPTIONIST', 'PHARMACIST', 'OWNER')
   async markAllAsRead(@Req() req) {
     const userId = req.user.sub;
     return this.notificationService.markAllAsRead(userId);

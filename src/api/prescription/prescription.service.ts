@@ -2,6 +2,8 @@ import {
     BadRequestException,
     Injectable,
     NotFoundException,
+    Inject,
+    forwardRef,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
@@ -13,6 +15,8 @@ import { Staff } from "../../shared/entities/staff.entity";
 import { MedicalRecord } from "../../shared/entities/medical-record.entity";
 import { Medicine } from "src/shared/entities/medicine.entity";
 import { PrescriptionDetail } from "src/shared/entities/prescription-detail.entity";
+import { NotificationService } from "../notification/notification.service";
+import { PrescriptionStatus } from "src/shared/enums/prescription-status.enum";
 
 @Injectable()
 export class PrescriptionService {
@@ -28,7 +32,9 @@ export class PrescriptionService {
         @InjectRepository(Medicine)
         private readonly medicineRepository: Repository<Medicine>,
         @InjectRepository(PrescriptionDetail)
-        private readonly detailRepository: Repository<PrescriptionDetail>
+        private readonly detailRepository: Repository<PrescriptionDetail>,
+        @Inject(forwardRef(() => NotificationService))
+        private readonly notificationService: NotificationService
     ) {}
 
     // Tạo đơn thuốc mới
@@ -81,6 +87,7 @@ export class PrescriptionService {
             return_date: return_date ? new Date(return_date) : null,
             created_at: new Date(),
             total_fee: 0,
+            status: PrescriptionStatus.PENDING,
         });
 
         await this.prescriptionRepository.save(prescription);
@@ -122,6 +129,7 @@ export class PrescriptionService {
             where: { id: prescription.id },
             relations: [
                 "patient",
+                "patient.user",
                 "doctor",
                 "doctor.user",
                 "medical_record",
@@ -129,6 +137,31 @@ export class PrescriptionService {
                 "details.medicine",
             ],
         });
+
+        if (!fullPrescription) {
+            throw new NotFoundException("Không tìm thấy đơn thuốc vừa tạo");
+        }
+
+        // Create notification for pharmacists
+        try {
+            const patientName =
+                fullPrescription.patient?.user?.full_name || "Bệnh nhân";
+            const doctorName =
+                fullPrescription.doctor?.user?.full_name || "Bác sĩ";
+            await this.notificationService.createPrescriptionNotification(
+                prescription.id,
+                patientName,
+                doctorName
+            );
+        } catch (err: unknown) {
+            const errorMessage =
+                err instanceof Error ? err.message : "Unknown error";
+            console.error(
+                "Error creating prescription notification:",
+                errorMessage
+            );
+            // Don't fail the prescription creation if notification fails
+        }
 
         return {
             message: "Tạo đơn thuốc thành công",
@@ -261,5 +294,142 @@ export class PrescriptionService {
             );
         await this.prescriptionRepository.remove(prescription);
         return { message: "Xóa đơn thuốc thành công", data: prescription };
+    }
+
+    // Lấy danh sách đơn thuốc chờ duyệt
+    async findPendingPrescriptions() {
+        const prescriptions = await this.prescriptionRepository.find({
+            where: { status: PrescriptionStatus.PENDING },
+            relations: [
+                "patient",
+                "patient.user",
+                "doctor",
+                "doctor.user",
+                "medical_record",
+                "details",
+                "details.medicine",
+            ],
+            order: { created_at: "DESC" },
+        });
+        return {
+            message: "Lấy danh sách đơn thuốc chờ duyệt thành công",
+            data: prescriptions,
+        };
+    }
+
+    // Duyệt đơn thuốc và cập nhật tồn kho
+    async approvePrescription(prescriptionId: string, userId: string) {
+        // Find prescription with details
+        const prescription = await this.prescriptionRepository.findOne({
+            where: { id: prescriptionId },
+            relations: ["details", "details.medicine", "approved_by"],
+        });
+
+        if (!prescription) {
+            throw new NotFoundException(
+                `Đơn thuốc với id: ${prescriptionId} không tồn tại`
+            );
+        }
+
+        if (prescription.status !== PrescriptionStatus.PENDING) {
+            throw new BadRequestException(
+                `Đơn thuốc này đã được xử lý (${prescription.status})`
+            );
+        }
+
+        // Find pharmacist by user ID
+        const pharmacist = await this.staffRepository.findOne({
+            where: { user: { id: userId } },
+            relations: ["user"],
+        });
+
+        if (!pharmacist) {
+            throw new NotFoundException("Không tìm thấy dược sĩ");
+        }
+
+        // Check and update stock for each medicine
+        for (const detail of prescription.details || []) {
+            const medicine = detail.medicine;
+            if (!medicine) {
+                throw new NotFoundException(
+                    `Không tìm thấy thuốc trong chi tiết đơn thuốc`
+                );
+            }
+
+            const currentStock = Number(medicine.stock || 0);
+            const requiredQuantity = Number(detail.quantity || 0);
+
+            if (currentStock < requiredQuantity) {
+                throw new BadRequestException(
+                    `Thuốc ${medicine.name} không đủ tồn kho. Cần: ${requiredQuantity}, Hiện có: ${currentStock}`
+                );
+            }
+
+            // Update stock
+            medicine.stock = currentStock - requiredQuantity;
+            await this.medicineRepository.save(medicine);
+        }
+
+        // Update prescription status
+        prescription.status = PrescriptionStatus.APPROVED;
+        prescription.approved_by = pharmacist;
+        prescription.approved_at = new Date();
+
+        await this.prescriptionRepository.save(prescription);
+
+        // Fetch full prescription with relations
+        const fullPrescription = await this.prescriptionRepository.findOne({
+            where: { id: prescriptionId },
+            relations: [
+                "patient",
+                "patient.user",
+                "doctor",
+                "doctor.user",
+                "approved_by",
+                "approved_by.user",
+                "medical_record",
+                "details",
+                "details.medicine",
+            ],
+        });
+
+        return {
+            message: "Duyệt đơn thuốc thành công",
+            data: fullPrescription,
+        };
+    }
+
+    // Lấy hoạt động gần đây của dược sĩ
+    async getRecentActivity(userId: string) {
+        // Find pharmacist by user ID
+        const pharmacist = await this.staffRepository.findOne({
+            where: { user: { id: userId } },
+        });
+
+        if (!pharmacist) {
+            throw new NotFoundException("Không tìm thấy dược sĩ");
+        }
+
+        const prescriptions = await this.prescriptionRepository.find({
+            where: {
+                approved_by: { id: pharmacist.id },
+                status: PrescriptionStatus.APPROVED,
+            },
+            relations: [
+                "patient",
+                "patient.user",
+                "doctor",
+                "doctor.user",
+                "details",
+                "details.medicine",
+            ],
+            order: { approved_at: "DESC" },
+            take: 10, // Lấy 10 đơn gần nhất
+        });
+
+        return {
+            message: "Lấy hoạt động gần đây thành công",
+            data: prescriptions,
+        };
     }
 }
