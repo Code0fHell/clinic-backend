@@ -11,13 +11,16 @@ export class UserService {
   ) {}
 
   async findByUsername(username: string) {
-    return this.userRepository.findOne({ where: { username } });
+    return this.userRepository.findOne({ 
+      where: { username },
+      relations: ["patient", "staff"],
+    });
   }
 
   async getProfile(userId: string) {
     return this.userRepository.findOne({
       where: { id: userId },
-      relations: ["patient"],
+      relations: ["patient", "staff"],
     });
   }
 
