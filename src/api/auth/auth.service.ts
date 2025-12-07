@@ -77,6 +77,8 @@ export class AuthService {
         email: user.email,
         avatar: user.avatar,
         role: user.user_role,
+        patient: user.patient,
+        staff: user.staff,
       },
     };
   }
