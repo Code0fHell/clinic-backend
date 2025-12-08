@@ -50,6 +50,23 @@ export class AppointmentService {
         return user.staff.id;
     }
 
+    async getUserWithRole(userId: string) {
+        const user = await this.userRepository.findOne({
+            where: { id: userId },
+            relations: ["staff"],
+        });
+
+        if (!user) {
+            throw new NotFoundException("User not found");
+        }
+
+        return {
+            user,
+            role: user.user_role,
+            staffId: user.staff?.id,
+        };
+    }
+
     async getAvailableSlots(scheduleId: string) {
         return this.workScheduleDetailRepository.find({
             where: { schedule: { id: scheduleId }, is_booked: false },
@@ -190,27 +207,59 @@ export class AppointmentService {
         });
     }
 
-    // Lấy ra cuộc hẹn trong ngày của bác sĩ
+    // Lấy ra cuộc hẹn trong ngày của bác sĩ hoặc lễ tân
     async getTodayAppointments(userId: string) {
-        const staffId = await this.getUserWithStaff(userId);
+        const userInfo = await this.getUserWithRole(userId);
+        const { role, staffId } = userInfo;
 
         const startOfDay = dayjs().startOf("day").toDate();
         const endOfDay = dayjs().endOf("day").toDate();
 
-        return this.appointmentRepository.find({
-            where: {
-                appointment_date: Between(startOfDay, endOfDay),
-                doctor: { id: staffId },
-            },
-            relations: [
-                "doctor",
-                "doctor.user",
-                "patient",
-                "schedule_detail",
-                "patient.user",
-            ],
-            order: { scheduled_date: "ASC" },
-        });
+        // Nếu là bác sĩ, lấy lịch hẹn của bác sĩ đó (lọc theo appointment_date và doctor_id)
+        if (role === UserRole.DOCTOR) {
+            if (!staffId) {
+                throw new NotFoundException(
+                    "This user is a doctor but does not have staff profile"
+                );
+            }
+
+            return this.appointmentRepository.find({
+                where: {
+                    appointment_date: Between(startOfDay, endOfDay),
+                    doctor: { id: staffId },
+                },
+                relations: [
+                    "doctor",
+                    "doctor.user",
+                    "patient",
+                    "schedule_detail",
+                    "patient.user",
+                ],
+                order: { scheduled_date: "ASC" },
+            });
+        }
+
+        // Nếu là lễ tân, lấy tất cả lịch hẹn được lên lịch trong ngày (lọc theo scheduled_date, không lọc theo doctor)
+        if (role === UserRole.RECEPTIONIST) {
+            return this.appointmentRepository.find({
+                where: {
+                    scheduled_date: Between(startOfDay, endOfDay),
+                },
+                relations: [
+                    "doctor",
+                    "doctor.user",
+                    "patient",
+                    "schedule_detail",
+                    "patient.user",
+                ],
+                order: { scheduled_date: "ASC" },
+            });
+        }
+
+        // Các role khác không được phép
+        throw new NotFoundException(
+            "This endpoint is only available for doctors and receptionists"
+        );
     }
 
     async updateAppointmentStatus(

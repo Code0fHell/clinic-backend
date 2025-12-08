@@ -54,14 +54,15 @@ export class AppointmentController {
         return this.appointmentService.getAllAppointments();
     }
 
-    @Get("today") // API lấy ra cuộc hẹn trong ngày dành cho bác sĩ
-    @UseGuards(JwtAuthGuard)
+    @Get("today") // API lấy ra cuộc hẹn trong ngày dành cho bác sĩ và lễ tân
+    @Roles("DOCTOR", "RECEPTIONIST")
+    @UseGuards(JwtAuthGuard, RolesGuard)
     @ApiOperation({
-        summary: "Get today's appointments for the authenticated doctor",
+        summary: "Get today's appointments for the authenticated doctor or receptionist",
+        description: "Doctors get their own appointments. Receptionists get all appointments scheduled for today.",
     })
     async getTodayAppointments(@Req() req) {
         const userId = req.user.id;
-        // Find the staff/doctor associated with this user
         return this.appointmentService.getTodayAppointments(userId);
     }
 
