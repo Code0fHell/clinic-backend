@@ -37,7 +37,8 @@ import { PrescriptionDetailModule } from "./api/prescription-detail/prescription
                 synchronize: false,
                 logging: cs.get("DB_LOG") === "true",
                 charset: "utf8mb4_general_ci",
-                timezone: "Z",
+                // timezone: "Z",
+                timezone: '+07:00',   // ép giữ đúng giờ VN
                 extra: {
                     connectionLimit: +cs.get("DB_CONNECTION_LIMIT") || 10,
                 },
@@ -65,4 +66,4 @@ import { PrescriptionDetailModule } from "./api/prescription-detail/prescription
     controllers: [],
     providers: [],
 })
-export class AppModule {}
+export class AppModule { }
