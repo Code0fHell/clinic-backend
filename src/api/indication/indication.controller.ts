@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Req, UseGuards } from '@nestjs/common';
+import { Controller, Post, Body, Req, UseGuards, Get } from '@nestjs/common';
 import { IndicationService } from './indication.service';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
@@ -20,5 +20,12 @@ export class IndicationController {
     const userId = req.user.id;
     // Id là id của bác sĩ
     return this.indicationService.createIndicationTicket(userId, dto);
+  }
+
+  @Get('lab/today')
+  @ApiOperation({ summary: 'LAB staff gets today lab test indications' })
+  @Roles('DOCTOR')
+  async getTodayLabIndications() {
+    return this.indicationService.getTodayLabIndications();
   }
 }
