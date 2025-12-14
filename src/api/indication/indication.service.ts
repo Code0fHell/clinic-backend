@@ -2,6 +2,8 @@ import {
     Injectable,
     NotFoundException,
     ForbiddenException,
+    Inject,
+    forwardRef,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { IndicationTicket } from "../../shared/entities/indication-ticket.entity";
@@ -14,6 +16,7 @@ import { Repository, Between } from "typeorm";
 import { CreateIndicationTicketDto } from "./dto/create-indication-ticket.dto";
 import { DoctorType } from "src/shared/enums/doctor-type.enum";
 import { MedicalRecord } from "../../shared/entities/medical-record.entity";
+import { NotificationService } from "../notification/notification.service";
 @Injectable()
 export class IndicationService {
     constructor(
@@ -30,13 +33,19 @@ export class IndicationService {
         @InjectRepository(Staff)
         private readonly staffRepository: Repository<Staff>,
         @InjectRepository(MedicalRecord)
-        private readonly medicalRecordRepository: Repository<MedicalRecord>
+        private readonly medicalRecordRepository: Repository<MedicalRecord>,
+        @Inject(forwardRef(() => NotificationService))
+        private readonly notificationService: NotificationService
     ) {}
 
     private generateShortCode(length = 4) {
         return Array.from({ length })
-            .map(() => Math.floor(Math.random() * 36).toString(36).toUpperCase())
-            .join('');
+            .map(() =>
+                Math.floor(Math.random() * 36)
+                    .toString(36)
+                    .toUpperCase()
+            )
+            .join("");
     }
     // Tạo barcode ngắn: CD-YYYYMMDD-XXXX
     async generateUniqueBarcode(): Promise<string> {
@@ -53,12 +62,10 @@ export class IndicationService {
             exists = await this.indicationTicketRepository.findOne({
                 where: { barcode },
             });
-
         } while (exists);
 
         return barcode;
     }
-
 
     async createIndicationTicket(
         userId: string,
@@ -114,7 +121,6 @@ export class IndicationService {
         indicationTicket.barcode = barcode;
         await this.indicationTicketRepository.save(indicationTicket);
 
-
         const serviceItems: {
             medical_service_id: string;
             service_name: string;
@@ -131,17 +137,27 @@ export class IndicationService {
             if (!medicalService) continue;
 
             const today = new Date();
-            const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-            const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+            const startOfDay = new Date(
+                today.getFullYear(),
+                today.getMonth(),
+                today.getDate()
+            );
+            const endOfDay = new Date(
+                today.getFullYear(),
+                today.getMonth(),
+                today.getDate() + 1
+            );
 
-            const queueNumber = await this.serviceIndicationRepository.count({
-                where: {
-                    medical_service: { room: { id: medicalService.room.id } },
-                    created_at: Between(startOfDay, endOfDay),
-                },
-                relations: ["medical_service", "medical_service.room"],
-            }) + 1;
-
+            const queueNumber =
+                (await this.serviceIndicationRepository.count({
+                    where: {
+                        medical_service: {
+                            room: { id: medicalService.room.id },
+                        },
+                        created_at: Between(startOfDay, endOfDay),
+                    },
+                    relations: ["medical_service", "medical_service.room"],
+                })) + 1;
 
             const serviceIndication = this.serviceIndicationRepository.create({
                 indication: indicationTicket,
@@ -167,14 +183,48 @@ export class IndicationService {
 
         await this.indicationTicketRepository.save(indicationTicket);
 
+        // Determine which room types are involved (DIAGNOSTIC, LAB, or both)
+        const roomTypesSet = new Set<string>();
+        for (const serviceId of dto.medical_service_ids) {
+            const medicalService = await this.medicalServiceRepository.findOne({
+                where: { id: serviceId },
+                relations: ["room"],
+            });
+            if (medicalService?.room?.room_type) {
+                roomTypesSet.add(medicalService.room.room_type);
+            }
+        }
+        const roomTypes = Array.from(roomTypesSet);
+
+        // Send notifications to relevant doctors
+        if (roomTypes.length > 0) {
+            try {
+                await this.notificationService.createIndicationNotification(
+                    indicationTicket.id,
+                    indicationTicket.barcode || "",
+                    patient.patient_full_name,
+                    doctor.user.full_name,
+                    roomTypes
+                );
+            } catch (error: unknown) {
+                const errorMessage =
+                    error instanceof Error ? error.message : String(error);
+                console.error(
+                    "Failed to create indication notification:",
+                    errorMessage
+                );
+                // Don't fail the indication creation if notification fails
+            }
+        }
+
         return {
             indication_ticket_id: indicationTicket.id,
             barcode: indicationTicket.barcode,
             medical_ticket_id: medicalTicket.id,
             patient_id: patient.id,
-            patient_name: patient.patient_full_name, 
+            patient_name: patient.patient_full_name,
             doctor_id: doctor.id,
-            doctor_name:  doctor.user.full_name,
+            doctor_name: doctor.user.full_name,
             diagnosis: indicationTicket.diagnosis,
             indication_date: indicationTicket.indication_date,
             service_items: serviceItems,
