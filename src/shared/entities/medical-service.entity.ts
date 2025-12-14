@@ -24,6 +24,9 @@ export class MedicalService {
   @JoinColumn( { name: 'room_id'})
   room: Room;
 
+  @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
+  reference_value: number;
+
   @OneToMany(() => ServiceIndication, (s) => s.medical_service)
   indications: ServiceIndication[];
 }

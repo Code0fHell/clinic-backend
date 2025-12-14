@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
 import { IndicationTicket } from './indication-ticket.entity';
 import { Staff } from './staff.entity';
 import { Patient } from './patient.entity';
@@ -9,12 +9,15 @@ export class LabTestResult {
   id: string;
 
   @ManyToOne(() => IndicationTicket)
+  @JoinColumn({ name: 'indication_id' })
   indication: IndicationTicket;
 
   @ManyToOne(() => Staff)
+  @JoinColumn({ name: 'doctor_id' })
   doctor: Staff;
 
   @ManyToOne(() => Patient)
+  @JoinColumn({ name: 'patient_id' })
   patient: Patient;
 
   @Column({ unique: true, nullable: true })
@@ -26,6 +29,6 @@ export class LabTestResult {
   @Column({ type: 'text', nullable: true })
   conclusion: string;
 
-  @Column({type: 'date', default: () => 'CURRENT_TIMESTAMP'})
+  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   created_at: Date;
 }
