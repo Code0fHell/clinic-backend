@@ -21,6 +21,9 @@ export class ServiceIndication {
   @Column({ type: 'int', nullable: false })
   queue_number: number;
 
+  @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
+  test_result: number;
+
   @Column({ type: "timestamp", default: () => "CURRENT_TIMESTAMP" })
   created_at: Date;
 }

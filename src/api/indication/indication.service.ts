@@ -17,6 +17,9 @@ import { CreateIndicationTicketDto } from "./dto/create-indication-ticket.dto";
 import { DoctorType } from "src/shared/enums/doctor-type.enum";
 import { MedicalRecord } from "../../shared/entities/medical-record.entity";
 import { NotificationService } from "../notification/notification.service";
+import { IndicationType } from "src/shared/enums/indication-ticket-type.enum";
+import { ServiceType } from "src/shared/enums/service-type.enum";
+
 @Injectable()
 export class IndicationService {
     constructor(
@@ -106,6 +109,31 @@ export class IndicationService {
             await this.medicalRecordRepository.save(medicalRecord);
         }
 
+        // Xác định indication_type từ dto hoặc tự động từ service types
+        let indicationType = dto.indication_type;
+        
+        if (!indicationType) {
+            // Lấy thông tin các services để xác định type
+            const services = await Promise.all(
+                dto.medical_service_ids.map(id => 
+                    this.medicalServiceRepository.findOne({ where: { id } })
+                )
+            );
+            
+            const serviceTypes = services
+                .filter((s): s is MedicalService => s !== null)
+                .map(s => s.service_type);
+            
+            // Ưu tiên IMAGING nếu có, không thì TEST, mặc định là TEST
+            if (serviceTypes.includes(ServiceType.IMAGING)) {
+                indicationType = IndicationType.IMAGING;
+            } else if (serviceTypes.includes(ServiceType.TEST)) {
+                indicationType = IndicationType.TEST;
+            } else {
+                indicationType = IndicationType.TEST; // Mặc định
+            }
+        }
+
         const indicationTicket = this.indicationTicketRepository.create({
             medical_ticket: medicalTicket,
             doctor: doctor,
@@ -113,6 +141,7 @@ export class IndicationService {
             diagnosis: dto.diagnosis,
             indication_date: new Date(),
             total_fee: 0,
+            indication_type: indicationType,
         });
         await this.indicationTicketRepository.save(indicationTicket);
 
@@ -220,6 +249,7 @@ export class IndicationService {
         return {
             indication_ticket_id: indicationTicket.id,
             barcode: indicationTicket.barcode,
+            indication_type: indicationTicket.indication_type,
             medical_ticket_id: medicalTicket.id,
             patient_id: patient.id,
             patient_name: patient.patient_full_name,
@@ -231,5 +261,54 @@ export class IndicationService {
             total_fee: indicationTicket.total_fee,
             medical_record_id: medicalRecord.id,
         };
+    }
+
+    async getTodayLabIndications() {
+        const today = new Date();
+        const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+
+        const indications = await this.indicationTicketRepository.find({
+            where: {
+                indication_type: IndicationType.TEST,
+                indication_date: Between(startOfDay, endOfDay),
+            },
+            relations: ['patient', 'doctor', 'doctor.user', 'serviceItems', 'serviceItems.medical_service'],
+            order: {
+                indication_date: 'ASC', // Sắp xếp theo thời gian tạo, cũ nhất lên trước
+            },
+        });
+
+        return indications.map(indication => ({
+            id: indication.id,
+            barcode: indication.barcode,
+            patient: {
+                id: indication.patient.id,
+                patient_full_name: indication.patient.patient_full_name,
+                patient_dob: indication.patient.patient_dob,
+                patient_phone: indication.patient.patient_phone,
+                patient_address: indication.patient.patient_address,
+                patient_gender: indication.patient.patient_gender,
+            },
+            doctor: {
+                id: indication.doctor.id,
+                user: {
+                    full_name: indication.doctor.user.full_name,
+                },
+            },
+            diagnosis: indication.diagnosis,
+            indication_date: indication.indication_date,
+            total_fee: indication.total_fee,
+            serviceItems: indication.serviceItems.map(item => ({
+                id: item.id,
+                medical_service: {
+                    id: item.medical_service.id,
+                    service_name: item.medical_service.service_name,
+                    description: item.medical_service.description,
+                    reference_value: item.medical_service.reference_value,
+                },
+                quantity: item.quantity,
+            })),
+        }));
     }
 }
