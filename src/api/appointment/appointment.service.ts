@@ -3,6 +3,7 @@ import {
     NotFoundException,
     Inject,
     forwardRef,
+    BadRequestException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { WorkScheduleDetail } from "../../shared/entities/work-schedule-detail.entity";
@@ -75,6 +76,11 @@ export class AppointmentService {
     }
 
     async bookAppointment(userId: string, dto: BookAppointmentDto) {
+        const dateError = this.validateScheduledDate(dto.scheduled_date);
+        if (dateError) {
+            throw new BadRequestException(dateError);
+        }
+
         // Find entities
         const doctor = await this.staffRepository.findOne({
             where: { id: dto.doctor_id },
@@ -90,11 +96,34 @@ export class AppointmentService {
         const patient = user.patient;
 
         const slot = await this.workScheduleDetailRepository.findOne({
-            where: { id: dto.schedule_detail_id, is_booked: false },
+            where: { id: dto.schedule_detail_id },
+            relations: ["schedule", "schedule.staff"],
         });
 
-        if (!doctor || !patient || !slot)
-            throw new Error("Invalid booking data");
+        if (!doctor || !patient) {
+            throw new BadRequestException("Thông tin đặt lịch không hợp lệ");
+        }
+
+        if (!slot || !slot.schedule || !slot.schedule.staff) {
+            throw new BadRequestException(
+                "Khung giờ đã được chọn bởi người khác, vui lòng chọn khung giờ khác."
+            );
+        }
+
+        const slotDate = dayjs(slot.schedule.work_date).format("YYYY-MM-DD");
+        const selectedDate = dayjs(dto.scheduled_date).format("YYYY-MM-DD");
+
+        if (slot.schedule.staff.id !== dto.doctor_id || slotDate !== selectedDate) {
+            throw new BadRequestException(
+                "Bác sĩ không làm việc trong ngày này, vui lòng chọn ngày khác."
+            );
+        }
+
+        if (slot.is_booked) {
+            throw new BadRequestException(
+                "Khung giờ đã được chọn bởi người khác, vui lòng chọn khung giờ khác."
+            );
+        }
 
         // Mark slot as booked
         slot.is_booked = true;
@@ -133,14 +162,37 @@ export class AppointmentService {
     }
 
     async guestBookAppointment(dto: GuestBookAppointmentDto) {
+        const dateError = this.validateScheduledDate(dto.scheduled_date);
+        if (dateError) {
+            throw new BadRequestException(dateError);
+        }
+
         // Check doctor and slot
         const doctor = await this.staffRepository.findOne({
             where: { id: dto.doctor_id },
         });
         const slot = await this.workScheduleDetailRepository.findOne({
-            where: { id: dto.schedule_detail_id, is_booked: false },
+            where: { id: dto.schedule_detail_id },
+            relations: ["schedule", "schedule.staff"],
         });
-        if (!doctor || !slot) throw new Error("Invalid booking data");
+        if (!doctor || !slot || !slot.schedule) {
+            throw new BadRequestException("Thông tin đặt lịch không hợp lệ");
+        }
+
+        const slotDate = dayjs(slot.schedule.work_date).format("YYYY-MM-DD");
+        const selectedDate = dayjs(dto.scheduled_date).format("YYYY-MM-DD");
+
+        if (slot.schedule.staff.id !== dto.doctor_id || slotDate !== selectedDate) {
+            throw new BadRequestException(
+                "Bác sĩ không làm việc trong ngày này, vui lòng chọn ngày khác."
+            );
+        }
+
+        if (slot.is_booked) {
+            throw new BadRequestException(
+                "Khung giờ đã được chọn bởi người khác, vui lòng chọn khung giờ khác."
+            );
+        }
 
         // Create User (optional, or skip if you want only Patient)
         const user = this.userRepository.create({
@@ -305,5 +357,21 @@ export class AppointmentService {
             relations: ["doctor", "doctor.user", "patient", "schedule_detail"],
             order: { scheduled_date: "ASC" },
         });
+    }
+
+    private validateScheduledDate(date: Date | string) {
+        const selected = dayjs(date).startOf("day");
+        const today = dayjs().startOf("day");
+        const maxDate = today.add(30, "day");
+
+        if (!selected.isValid()) {
+            return "Ngày khám không hợp lệ, vui lòng chọn ngày khám trong tương lai không quá 30 ngày.";
+        }
+
+        if (selected.isBefore(today) || selected.isAfter(maxDate)) {
+            return "Ngày khám không hợp lệ, vui lòng chọn ngày khám trong tương lai không quá 30 ngày.";
+        }
+
+        return "";
     }
 }
