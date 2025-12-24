@@ -36,6 +36,7 @@
     "clinic-backend": "file:",
     "multer": "^2.0.2",
     "mysql2": "^3.15.1",
+    "ngrok": "^5.0.0-beta.2",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "passport-local": "^1.0.0",

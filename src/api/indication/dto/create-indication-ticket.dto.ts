@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsOptional, IsString, IsUUID, ArrayNotEmpty, ArrayUnique, IsArray, } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString, IsUUID, ArrayNotEmpty, ArrayUnique, IsArray, IsEnum } from 'class-validator';
+import { IndicationType } from 'src/shared/enums/indication-ticket-type.enum';
 
 export class CreateIndicationTicketDto {
   @ApiProperty({
@@ -40,4 +41,14 @@ export class CreateIndicationTicketDto {
   @IsOptional()
   @IsString({ message: 'diagnosis phải là chuỗi' })
   diagnosis?: string;
+
+  @ApiProperty({
+    required: false,
+    enum: IndicationType,
+    example: IndicationType.TEST,
+    description: 'Loại phiếu chỉ định (TEST hoặc IMAGING). Nếu không cung cấp, hệ thống sẽ tự động xác định dựa trên dịch vụ',
+  })
+  @IsOptional()
+  @IsEnum(IndicationType, { message: 'indication_type phải là TEST hoặc IMAGING' })
+  indication_type?: IndicationType;
 }

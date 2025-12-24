@@ -21,6 +21,8 @@ import { PrescriptionModule } from "./api/prescription/prescription.module";
 import { PrescriptionDetailModule } from "./api/prescription-detail/prescription-detail.module";
 import { NotificationModule } from "./api/notification/notification.module";
 import { OwnerModule } from "./api/owner/owner.module";
+import { LabTestResultModule } from "./api/lab-test-result/lab-test-result.module";
+
 @Module({
     imports: [
         ConfigModule.forRoot({ isGlobal: true }),
@@ -64,7 +66,8 @@ import { OwnerModule } from "./api/owner/owner.module";
         PrescriptionModule,
         PrescriptionDetailModule,
         NotificationModule,
-        OwnerModule
+        OwnerModule,
+        LabTestResultModule
     ],
     controllers: [],
     providers: [],

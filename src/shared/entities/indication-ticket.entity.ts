@@ -3,6 +3,7 @@ import { MedicalTicket } from './medical-ticket.entity';
 import { Staff } from './staff.entity';
 import { Patient } from './patient.entity';
 import { ServiceIndication } from './service-indication.entity';
+import { IndicationType } from '../enums/indication-ticket-type.enum';
 
 @Entity()
 export class IndicationTicket {
@@ -35,4 +36,8 @@ export class IndicationTicket {
 
   @OneToMany(() => ServiceIndication, (s) => s.indication)
   serviceItems: ServiceIndication[];
+
+  // loại phiếu chỉ định
+  @Column({ type: 'enum', enum: IndicationType })
+  indication_type: IndicationType;
 }

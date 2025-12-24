@@ -7,6 +7,7 @@ import { Appointment } from "../../shared/entities/appointment.entity";
 import { Staff } from "../../shared/entities/staff.entity";
 import { UserRole } from "../../shared/enums/user-role.enum";
 import { AppointmentStatus } from "../../shared/enums/appointment-status.enum";
+import { DoctorType } from "../../shared/enums/doctor-type.enum";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
@@ -68,9 +69,9 @@ export class NotificationService {
         // Don't show APPOINTMENT notifications
         if (userRole === "PHARMACIST") {
             return this.notificationRepository.find({
-                where: { 
+                where: {
                     user: { id: userId },
-                    type: In(["PRESCRIPTION", "OTHER"])
+                    type: In(["PRESCRIPTION", "OTHER"]),
                 },
                 relations: [
                     "appointment",
@@ -80,7 +81,7 @@ export class NotificationService {
                 order: { created_at: "DESC" },
             });
         }
-        
+
         return this.notificationRepository.find({
             where: { user: { id: userId } },
             relations: [
@@ -145,6 +146,68 @@ export class NotificationService {
         });
 
         await this.notificationRepository.save(notifications);
+        return notifications;
+    }
+
+    async createIndicationNotification(
+        indicationId: string,
+        indicationBarcode: string,
+        patientName: string,
+        doctorName: string,
+        roomTypes: string[] // ['DIAGNOSTIC', 'LAB'] hoặc cả hai
+    ) {
+        const notifications: Notification[] = [];
+
+        // Notify diagnostic doctors if indication contains diagnostic services
+        if (roomTypes.includes("DIAGNOSTIC")) {
+            const diagnosticDoctors = await this.staffRepository.find({
+                where: { doctor_type: DoctorType.DIAGNOSTIC },
+                relations: ["user"],
+            });
+
+            if (diagnosticDoctors && diagnosticDoctors.length > 0) {
+                const diagnosticNotifications = diagnosticDoctors.map(
+                    (doctor) => {
+                        return this.notificationRepository.create({
+                            user: doctor.user,
+                            appointment: null,
+                            title: "Phiếu chỉ định chẩn đoán hình ảnh mới",
+                            message: `Có phiếu chỉ định chẩn đoán hình ảnh mới từ bác sĩ ${doctorName} cho bệnh nhân ${patientName}. Mã phiếu: ${indicationBarcode}`,
+                            type: "OTHER",
+                            is_read: false,
+                        });
+                    }
+                );
+                notifications.push(...diagnosticNotifications);
+            }
+        }
+
+        // Notify lab doctors if indication contains lab services
+        if (roomTypes.includes("LAB")) {
+            const labDoctors = await this.staffRepository.find({
+                where: { doctor_type: DoctorType.LAB },
+                relations: ["user"],
+            });
+
+            if (labDoctors && labDoctors.length > 0) {
+                const labNotifications = labDoctors.map((doctor) => {
+                    return this.notificationRepository.create({
+                        user: doctor.user,
+                        appointment: null,
+                        title: "Phiếu chỉ định xét nghiệm mới",
+                        message: `Có phiếu chỉ định xét nghiệm mới từ bác sĩ ${doctorName} cho bệnh nhân ${patientName}. Mã phiếu: ${indicationBarcode}`,
+                        type: "OTHER",
+                        is_read: false,
+                    });
+                });
+                notifications.push(...labNotifications);
+            }
+        }
+
+        if (notifications.length > 0) {
+            await this.notificationRepository.save(notifications);
+        }
+
         return notifications;
     }
 
