@@ -55,7 +55,7 @@ export class BillService {
             if (!medicalTicket)
                 throw new NotFoundException("Medical ticket not found");
 
-            doctor = medicalTicket.assigned_doctor_id; 
+            doctor = medicalTicket.assigned_doctor_id;
             total = Number(medicalTicket.clinical_fee || 0);
             if (!total) {
                 throw new BadRequestException(
@@ -132,6 +132,8 @@ export class BillService {
             created_at: bill.created_at,
             createdByName: user?.full_name,
             patient_name: bill.patient ? bill.patient.patient_full_name : null, // thêm tên bệnh nhân
+            patient_phone: bill.patient ? bill.patient.patient_phone : null,
+            payment_method: bill.payments[0]?.payment_method || null,
             payment_status: bill.payments.length > 0
                 ? bill.payments.map(p => p.payment_status)
                 : null,

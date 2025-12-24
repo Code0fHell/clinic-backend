@@ -20,7 +20,7 @@ import { MedicalRecordModule } from "./api/medical-record/medical-record.module"
 import { PrescriptionModule } from "./api/prescription/prescription.module";
 import { PrescriptionDetailModule } from "./api/prescription-detail/prescription-detail.module";
 import { NotificationModule } from "./api/notification/notification.module";
-
+import { OwnerModule } from "./api/owner/owner.module";
 @Module({
     imports: [
         ConfigModule.forRoot({ isGlobal: true }),
@@ -63,7 +63,8 @@ import { NotificationModule } from "./api/notification/notification.module";
         MedicalRecordModule,
         PrescriptionModule,
         PrescriptionDetailModule,
-        NotificationModule
+        NotificationModule,
+        OwnerModule
     ],
     controllers: [],
     providers: [],
