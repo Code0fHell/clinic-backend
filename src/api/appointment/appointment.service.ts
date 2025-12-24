@@ -295,7 +295,7 @@ export class AppointmentService {
         if (role === UserRole.RECEPTIONIST) {
             return this.appointmentRepository.find({
                 where: {
-                    scheduled_date: Between(startOfDay, endOfDay),
+                    appointment_date: Between(startOfDay, endOfDay),
                 },
                 relations: [
                     "doctor",

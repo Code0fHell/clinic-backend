@@ -20,6 +20,7 @@ import { MedicalRecordModule } from "./api/medical-record/medical-record.module"
 import { PrescriptionModule } from "./api/prescription/prescription.module";
 import { PrescriptionDetailModule } from "./api/prescription-detail/prescription-detail.module";
 import { NotificationModule } from "./api/notification/notification.module";
+import { OwnerModule } from "./api/owner/owner.module";
 import { LabTestResultModule } from "./api/lab-test-result/lab-test-result.module";
 
 @Module({
@@ -65,6 +66,7 @@ import { LabTestResultModule } from "./api/lab-test-result/lab-test-result.modul
         PrescriptionModule,
         PrescriptionDetailModule,
         NotificationModule,
+        OwnerModule,
         LabTestResultModule
     ],
     controllers: [],
