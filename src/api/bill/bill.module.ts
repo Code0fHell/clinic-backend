@@ -9,6 +9,7 @@ import { IndicationTicket } from "src/shared/entities/indication-ticket.entity";
 import { Prescription } from "src/shared/entities/prescription.entity";
 import { BillController } from "./bill.controller";
 import { BillService } from "./bill.service";
+import { Payment } from "src/shared/entities/payment.entity";
 
 @Module({
     imports: [
@@ -19,6 +20,7 @@ import { BillService } from "./bill.service";
             MedicalTicket,
             IndicationTicket,
             Prescription,
+            Payment
         ]),
     ],
     providers: [BillService, RolesGuard],

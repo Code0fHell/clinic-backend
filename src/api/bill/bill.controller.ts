@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, UseGuards, Param } from "@nestjs/common";
+import { Controller, Post, Get, Body, UseGuards, Param, Query } from "@nestjs/common";
 import { BillService } from "./bill.service";
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiBody } from "@nestjs/swagger";
 import { AuthGuard } from "@nestjs/passport";
@@ -6,6 +6,7 @@ import { RolesGuard } from "../../common/guards/roles.guard";
 import { Roles } from "../../common/guards/roles.decorator";
 import { CreateBillDto } from "./dto/create-bill.dto";
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
+import { QueryBillTodayDTO } from "./dto/query-bill-today.dto";
 
 @ApiTags("bill")
 @ApiBearerAuth()
@@ -35,9 +36,10 @@ export class BillController {
     })
     @Roles("RECEPTIONIST")
     async getAllBillToday(
-        @CurrentUser() user: any // hoặc @Req() req: Request)
+        @CurrentUser() user: any, // hoặc @Req() req: Request)
+        @Query() dto: QueryBillTodayDTO
     ) {
-        return this.billService.getAllBillToday(user);
+        return this.billService.getAllBillToday(user, dto);
     }
 
     @Get("/:billId")

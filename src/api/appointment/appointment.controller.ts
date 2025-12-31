@@ -9,6 +9,8 @@ import {
     Put,
     HttpCode,
     HttpStatus,
+    NotFoundException,
+    Query
 } from "@nestjs/common";
 import { AppointmentService } from "./appointment.service";
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse } from "@nestjs/swagger";
@@ -19,12 +21,13 @@ import { RolesGuard } from "src/common/guards/roles.guard";
 import { Roles } from "src/common/guards/roles.decorator";
 import { AppointmentStatus } from "src/shared/enums/appointment-status.enum";
 import { Appointment } from "src/shared/entities/appointment.entity";
+import { QueryAppointmentDTO } from "./dto/query-appointment.dto";
 
 @ApiTags("appointment")
 @ApiBearerAuth()
 @Controller("api/v1/appointment")
 export class AppointmentController {
-    constructor(private readonly appointmentService: AppointmentService) {}
+    constructor(private readonly appointmentService: AppointmentService) { }
 
     @Get("work-schedule/:id/slots")
     @ApiOperation({ summary: "Get available slots for a work schedule" })
@@ -69,9 +72,9 @@ export class AppointmentController {
         summary: "Get today's appointments for the authenticated doctor or receptionist",
         description: "Doctors get their own appointments. Receptionists get all appointments scheduled for today.",
     })
-    async getTodayAppointments(@Req() req) {
+    async getTodayAppointments(@Req() req, @Query() dto: QueryAppointmentDTO) {
         const userId = req.user.id;
-        return this.appointmentService.getTodayAppointments(userId);
+        return this.appointmentService.getTodayAppointments(userId, dto);
     }
 
     @Get("week")
@@ -87,7 +90,7 @@ export class AppointmentController {
     }
 
     @Put(":id/status") // API cập nhật trạng thái cuộc hẹn
-    @ApiOperation( { summary: "Update appointment status"})
+    @ApiOperation({ summary: "Update appointment status" })
     async updateAppointmentStatus(@Param("id") appointmentId: string, @Body("appointment_status") appointmentStatus: AppointmentStatus) {
         return this.appointmentService.updateAppointmentStatus(appointmentId, appointmentStatus);
     }
