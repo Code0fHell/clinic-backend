@@ -19,6 +19,8 @@ import { GuestBookAppointmentDto } from "./dto/guest-book-appointment.dto";
 import { UserRole } from "src/shared/enums/user-role.enum";
 import { NotificationService } from "../notification/notification.service";
 import dayjs from "dayjs";
+import { QueryAppointmentDTO } from "./dto/query-appointment.dto";
+
 @Injectable()
 export class AppointmentService {
     constructor(
@@ -34,7 +36,7 @@ export class AppointmentService {
         private readonly userRepository: Repository<User>,
         @Inject(forwardRef(() => NotificationService))
         private readonly notificationService: NotificationService
-    ) {}
+    ) { }
 
     async getUserWithStaff(userId: string) {
         const user = await this.userRepository.findOne({
@@ -260,18 +262,26 @@ export class AppointmentService {
     }
 
     // Lấy ra cuộc hẹn trong ngày của bác sĩ hoặc lễ tân
-    async getTodayAppointments(userId: string) {
+    async getTodayAppointments(userId: string, dto: QueryAppointmentDTO) {
         const userInfo = await this.getUserWithRole(userId);
         const { role, staffId } = userInfo;
 
-        const startOfDay = dayjs().startOf("day").toDate();
-        const endOfDay = dayjs().endOf("day").toDate();
+        const {date,keyword,visitFilter = 'all',page = 1,limit = 10} = dto;
 
-        // Nếu là bác sĩ, lấy lịch hẹn của bác sĩ đó (lọc theo appointment_date và doctor_id)
+        const selectedDate = date ? dayjs(date) : dayjs();
+        const startOfDay = selectedDate.startOf('day').toDate();
+        const endOfDay = selectedDate.endOf('day').toDate();
+
+
+        /**
+         * =============================
+         * 👨‍⚕️ DOCTOR (giữ nguyên logic)
+         * =============================
+         */
         if (role === UserRole.DOCTOR) {
             if (!staffId) {
                 throw new NotFoundException(
-                    "This user is a doctor but does not have staff profile"
+                    'This user is a doctor but does not have staff profile',
                 );
             }
 
@@ -281,38 +291,114 @@ export class AppointmentService {
                     doctor: { id: staffId },
                 },
                 relations: [
-                    "doctor",
-                    "doctor.user",
-                    "patient",
-                    "schedule_detail",
-                    "patient.user",
+                    'doctor',
+                    'doctor.user',
+                    'patient',
+                    'patient.user',
+                    'schedule_detail',
                 ],
-                order: { scheduled_date: "ASC" },
+                order: { scheduled_date: 'ASC' },
             });
         }
 
-        // Nếu là lễ tân, lấy tất cả lịch hẹn được lên lịch trong ngày (lọc theo scheduled_date, không lọc theo doctor)
+        /**
+         * =============================
+         * 🧾 RECEPTIONIST
+         * =============================
+         */
         if (role === UserRole.RECEPTIONIST) {
-            return this.appointmentRepository.find({
-                where: {
-                    appointment_date: Between(startOfDay, endOfDay),
+            const qb = this.appointmentRepository
+                .createQueryBuilder('a')
+                // join
+                .leftJoin('a.patient', 'p')
+                .leftJoin('p.user', 'pu')
+                .leftJoin('a.doctor', 'd')
+                .leftJoin('d.user', 'du')
+                .leftJoin('a.schedule_detail', 'sd')
+                // Lấy dữ liệu cần thiết
+                .select([
+                    // appointment
+                    'a.id',
+                    'a.scheduled_date',
+                    'a.reason',
+                    'a.session',
+                    'a.status',
+                    // patient
+                    'p.id',
+                    'pu.full_name',
+                    'pu.gender',
+                    'pu.phone',
+                    'pu.address',
+                    // doctor
+                    'd.id',
+                    'du.full_name',
+                    // visit status
+                    'sd.id',
+                ])
+                .where('a.appointment_date BETWEEN :start AND :end', {
+                    start: startOfDay,
+                    end: endOfDay,
+                });
+
+            // Tìm kiếm theo tên / SĐT
+            if (keyword) {
+                qb.andWhere(
+                    `(pu.full_name LIKE :keyword OR pu.phone LIKE :keyword)`,
+                    { keyword: `%${keyword}%` },
+                );
+            }
+
+            // Lọc theo trạng thái thăm khám
+            if (visitFilter === 'added') {
+                qb.andWhere('sd.id IS NOT NULL');
+            }
+
+            if (visitFilter === 'not_added') {
+                qb.andWhere('sd.id IS NULL');
+            }
+
+            // Sắp xếp + phân trang
+            qb.orderBy('a.scheduled_date', 'ASC')
+                .skip((page - 1) * limit)
+                .take(limit);
+
+            const [rows, total] = await qb.getManyAndCount();
+
+            // Mapping dữ liệu trả về cho FE
+            return {
+                data: rows.map((item) => ({
+                    id: item.id,
+                    patient: {
+                        id: item.patient?.id,
+                        name: item.patient?.user?.full_name,
+                        gender: item.patient?.user?.gender,
+                        phone: item.patient?.user?.phone,
+                        address: item.patient?.user?.address
+                    },
+                    doctor: {
+                        id: item.doctor?.id,
+                        name: item.doctor?.user?.full_name,
+                    },
+                    scheduled_date: item.scheduled_date,
+                    reson: item.reason,
+                    sesion: item.session,
+                    status: item.status,
+                    visitStatus: item.schedule_detail ? 'added' : 'not_added',
+                })),
+                pagination: {
+                    total,
+                    page,
+                    limit,
+                    totalPages: Math.ceil(total / limit),
                 },
-                relations: [
-                    "doctor",
-                    "doctor.user",
-                    "patient",
-                    "schedule_detail",
-                    "patient.user",
-                ],
-                order: { scheduled_date: "ASC" },
-            });
+            };
         }
 
-        // Các role khác không được phép
         throw new NotFoundException(
-            "This endpoint is only available for doctors and receptionists"
+            'This endpoint is only available for doctors and receptionists',
         );
     }
+
 
     async updateAppointmentStatus(
         appointmentId: string,
