@@ -13,7 +13,10 @@ import { Prescription } from "../../shared/entities/prescription.entity";
 import { BillType } from "../../shared/enums/bill-type.enum";
 import { Repository } from "typeorm";
 import { CreateBillDto } from "./dto/create-bill.dto";
-import { Between } from 'typeorm';
+import { PaymentStatus } from "src/shared/enums/payment-status.enum";
+import { Payment } from "src/shared/entities/payment.entity";
+import dayjs from 'dayjs';
+import { QueryBillTodayDTO } from "./dto/query-bill-today.dto";
 
 
 @Injectable()
@@ -21,6 +24,8 @@ export class BillService {
     constructor(
         @InjectRepository(Bill)
         private readonly billRepository: Repository<Bill>,
+        @InjectRepository(Payment)
+        private readonly paymentRepository: Repository<Payment>,
         @InjectRepository(Patient)
         private readonly patientRepository: Repository<Patient>,
         @InjectRepository(Staff)
@@ -33,6 +38,13 @@ export class BillService {
         private readonly prescriptionRepository: Repository<Prescription>
     ) { }
 
+    // Hàm so sánh ngày
+    private isSameDay(date: Date): boolean {
+        const today = dayjs().format('YYYY-MM-DD');
+        const target = dayjs(date).format('YYYY-MM-DD');
+        return today === target;
+    }
+
     // Lễ tân tạo hóa đơn cho bệnh nhân
     async createBill(dto: CreateBillDto) {
         const patient = await this.patientRepository.findOne({
@@ -40,69 +52,124 @@ export class BillService {
         });
         if (!patient) throw new NotFoundException("Patient not found");
 
+        const today = dayjs().format('YYYY-MM-DD');
+        const startOfDay = `${today} 00:00:00`;
+        const endOfDay = `${today} 23:59:59`;
+
         let total = dto.total || 0;
         let doctor: Staff | null = null;
         let medicalTicket: MedicalTicket | null = null;
         let indicationTicket: IndicationTicket | null = null;
         let prescription: Prescription | null = null;
 
-        // Hóa đơn phí khám bệnh
+        // 1. BILL KHÁM BỆNH
         if (dto.bill_type === BillType.CLINICAL) {
             medicalTicket = await this.medicalTicketRepository.findOne({
                 where: { id: dto.medical_ticket_id },
                 relations: ["assigned_doctor_id"],
             });
+
             if (!medicalTicket)
-                throw new NotFoundException("Medical ticket not found");
+                throw new NotFoundException("Chưa có phiếu khám lâm sàng");
+
+            // KIỂM TRA NGÀY KHÁM
+            if (!this.isSameDay(medicalTicket.issued_at)) {
+                throw new BadRequestException(
+                    "Chỉ được tạo hóa đơn trong ngày bệnh nhân đến khám"
+                );
+            }
 
             doctor = medicalTicket.assigned_doctor_id;
             total = Number(medicalTicket.clinical_fee || 0);
+
             if (!total) {
                 throw new BadRequestException(
-                    "Medical ticket is missing clinical fee. Vui lòng cập nhật phí khám."
+                    "Chưa có tiền khám lâm sàng"
                 );
             }
         }
+        // 2. BILL DỊCH VỤ
         else if (dto.bill_type === BillType.SERVICE) {
-            // Hóa đơn dịch vụ cận lâm sàng
             indicationTicket = await this.indicationTicketRepository.findOne({
                 where: { id: dto.indication_ticket_id },
                 relations: ["doctor"],
             });
+
             if (!indicationTicket)
-                throw new NotFoundException("Indication ticket not found");
+                throw new NotFoundException("Không có phiếu khám chỉ định");
+
+            // CHECK NGÀY
+            if (!this.isSameDay(indicationTicket.indication_date)) {
+                throw new BadRequestException(
+                    "Chỉ được tạo hóa đơn trong ngày thực hiện dịch vụ"
+                );
+            }
+
             doctor = indicationTicket.doctor;
             total = indicationTicket.total_fee || 0;
-        } else if (dto.bill_type === BillType.MEDICINE) {
-            // Hóa đơn thuốc
+        }
+        // 3. BILL THUỐC
+        else if (dto.bill_type === BillType.MEDICINE) {
             prescription = await this.prescriptionRepository.findOne({
                 where: { id: dto.prescription_id },
                 relations: ["doctor", "details", "details.medicine"],
             });
+
             if (!prescription)
-                throw new NotFoundException("Prescription not found");
-            doctor = prescription.doctor;
-            total = Number(prescription.total_fee || 0);
-            if (!total && prescription.details?.length) {
-                total = prescription.details.reduce((sum, detail) => {
-                    const price = Number(detail.medicine?.price || 0);
-                    return sum + price * detail.quantity;
-                }, 0);
+                throw new NotFoundException("Đơn thuốc không tồn tại");
+
+            // CHECK NGÀY
+            if (!this.isSameDay(prescription.created_at)) {
+                throw new BadRequestException(
+                    "Chỉ được tạo hóa đơn trong ngày kê đơn"
+                );
             }
 
+            doctor = prescription.doctor;
+
+            total =
+                prescription.total_fee ||
+                prescription.details?.reduce((sum, d) => {
+                    return sum + Number(d.medicine?.price || 0) * d.quantity;
+                }, 0);
+
             if (!total) {
-                throw new BadRequestException("Prescription does not contain any fee information");
+                throw new BadRequestException(
+                    "Prescription does not contain any fee information"
+                );
             }
-        } else {
-            throw new BadRequestException("Invalid bill type");
+        }
+        else {
+            throw new BadRequestException("Không thể tạo hóa đơn");
+        }
+
+        // Kiểm tra giao dịch đang pending/failed trong ngày
+        const pendingOrFailedPaymentToday = await this.billRepository
+            .createQueryBuilder('bill')
+            .leftJoinAndSelect('bill.payments', 'payment')
+            .leftJoinAndSelect('bill.patient', 'patient')
+            .where('patient.id = :patientId', { patientId: dto.patient_id })
+            .andWhere('payment.payment_status IN (:...statuses)', {
+                statuses: [PaymentStatus.PENDING, PaymentStatus.FAILED],
+            })
+            .andWhere('payment.paid_at BETWEEN :start AND :end', {
+                start: startOfDay,
+                end: endOfDay,
+            })
+            .getOne();
+
+        if (pendingOrFailedPaymentToday) {
+            throw new BadRequestException(
+                "Bệnh nhân đang có giao dịch chưa thanh toán trong hôm nay"
+            );
         }
 
         const bill = this.billRepository.create({
             bill_type: dto.bill_type,
-            patient: patient,
-            doctor: doctor,
+            patient,
+            doctor,
             medical_ticket: medicalTicket,
-            prescription: prescription,
+            prescription,
             indication_ticket: indicationTicket,
             total,
             createdAt: new Date(),
@@ -111,33 +178,82 @@ export class BillService {
         return this.billRepository.save(bill);
     }
 
-    // Lấy tất cả Bill theo ngày
-    async getAllBillToday(user: any) {
-        const now = new Date();
-        const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
-        const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
 
-        const bills = await this.billRepository
+    // Lấy tất cả Bill theo ngày
+    async getAllBillToday(user: any, dto: QueryBillTodayDTO) {
+        const { billType = 'all', paymentMethod = 'all', paymentStatus = 'all', keyword, date, page = 1, limit = 10 } = dto;
+        const selectedDate = date ? dayjs(date) : dayjs();
+        const startOfDay = selectedDate.startOf('day').toDate();
+        const endOfDay = selectedDate.endOf('day').toDate();
+
+        const query = this.billRepository
             .createQueryBuilder('bill')
             .leftJoinAndSelect('bill.payments', 'payment')       // lấy payment nếu có
             .leftJoinAndSelect('bill.patient', 'patient')       // lấy patient
-            .where('bill.created_at BETWEEN :start AND :end', { start, end })
-            .orderBy('bill.created_at', 'DESC')
-            .getMany();
+            .where('bill.created_at BETWEEN :startOfDay AND :endOfDay', { startOfDay, endOfDay })
 
-        return bills.map(bill => ({
-            id: bill.id,
-            total: bill.total,
-            bill_type: bill.bill_type,
-            created_at: bill.created_at,
-            createdByName: user?.full_name,
-            patient_name: bill.patient ? bill.patient.patient_full_name : null, // thêm tên bệnh nhân
-            patient_phone: bill.patient ? bill.patient.patient_phone : null,
-            payment_method: bill.payments[0]?.payment_method || null,
-            payment_status: bill.payments.length > 0
-                ? bill.payments.map(p => p.payment_status)
-                : null,
-        }));
+        // Tìm theo tên hoặc SĐT
+        if (keyword) {
+            query.andWhere(
+                `(patient.patient_full_name LIKE :keyword 
+                OR patient.patient_phone LIKE :keyword
+                OR patient.fatherORmother_phone LIKE :keyword)`,
+                { keyword: `%${keyword}%` }
+            );
+        }
+        // Lọc theo loại hóa đơn
+        if (billType !== 'all') {
+            query.andWhere('bill.bill_type = :billType', { billType });
+        }
+        // Lọc theo hình thức thanh toán
+        if (paymentMethod !== 'all') {
+            query.andWhere(
+                'payment.payment_method = :paymentMethod AND payment.payment_status = :successStatus',
+                {
+                    paymentMethod,
+                    successStatus: PaymentStatus.SUCCESS,
+                }
+            );
+        }
+        // Lọc theo trạng thái thanh toán
+        if (paymentStatus !== 'all') {
+            query.andWhere('payment.payment_status = :paymentStatus', {
+                paymentStatus,
+            });
+        }
+        // Phân trang
+        query
+            .skip((page - 1) * limit)
+            .take(limit);
+        query.orderBy('bill.created_at', 'DESC');
+
+        const [bills, total] = await query.getManyAndCount();
+
+        return {
+            data: bills.map(bill => {
+                // Prefer a successful payment when choosing displayed payment method
+                const successPayment = bill.payments?.find(p => p.payment_status === PaymentStatus.SUCCESS);
+                const chosenPayment = successPayment || bill.payments?.[0] || null;
+
+                return {
+                    id: bill.id,
+                    total: bill.total,
+                    bill_type: bill.bill_type,
+                    created_at: bill.created_at,
+                    createdByName: user?.full_name,
+                    patient_name: bill.patient?.patient_full_name || null,
+                    patient_phone: bill.patient?.patient_phone || null,
+                    payment_method: chosenPayment?.payment_method || null,
+                    payment_status: bill.payments?.map(p => p.payment_status) || [],
+                };
+            }),
+            pagination: {
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit)
+            },
+        }
     }
 
     // Lấy ra chi tiết thông tin bill
