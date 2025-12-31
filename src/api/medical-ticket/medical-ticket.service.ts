@@ -49,7 +49,7 @@ export class MedicalTicketService {
             todayCheck.getDate() === visitDate.getDate();
 
         if (!isSameDay) {
-            throw new BadRequestException('Chỉ có thể tạo phiếu khám (Medical Ticket) cho lượt khám trong ngày hôm nay.');
+            throw new BadRequestException('Chỉ có thể tạo phiếu khám cho lượt khám trong ngày hôm nay');
         }
 
         // --- Kiểm tra xem đã có ticket hôm nay chưa ---
