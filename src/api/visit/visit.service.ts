@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between } from 'typeorm';
+import { Repository, Between, Not, In } from 'typeorm';
 import { Visit } from '../../shared/entities/visit.entity';
 import { CreateVisitDto } from './dto/create-visit.dto';
 import { Patient } from '../../shared/entities/patient.entity';
@@ -11,6 +11,7 @@ import { WorkScheduleDetail } from 'src/shared/entities/work-schedule-detail.ent
 import { AppointmentStatus } from 'src/shared/enums/appointment-status.enum';
 import { VisitStatus } from 'src/shared/enums/visit-status.enum';
 import dayjs from 'dayjs';
+import { QueryVisitDTO } from './dto/query-visit.dto';
 
 @Injectable()
 export class VisitService {
@@ -117,22 +118,119 @@ export class VisitService {
         return this.visitRepository.save(visit);
     }
 
-    async getTodayQueue(): Promise<Visit[]> {
-        const startOfDay = dayjs().startOf('day').toDate();
-        const endOfDay = dayjs().endOf('day').toDate();
+    async getTodayQueue(dto: QueryVisitDTO): Promise<{
+        data: any[];
+        pagination: {
+            total: number;
+            totalPages: number;
+            page: number;
+            limit: number;
+        };
+    }> {
+        const { visitFilter = 'all', appointmentType = 'all', keyword, date, page = 1, limit = 10 } = dto;
+        const selectedDate = date ? dayjs(date) : dayjs();
+        const startOfDay = selectedDate.startOf('day').toDate();
+        const endOfDay = selectedDate.endOf('day').toDate();
 
-        return this.visitRepository
+        const query = this.visitRepository
             .createQueryBuilder('visit')
             .leftJoinAndSelect('visit.patient', 'patient')
             .leftJoinAndSelect('visit.doctor', 'doctor')
             .leftJoinAndSelect('doctor.user', 'user')
             .leftJoinAndSelect('visit.appointment', 'appointment')
-            .leftJoinAndSelect('visit.medicalTickets', 'medicalTickets')
-            .where('visit.checked_in_at BETWEEN :start AND :end', { start: startOfDay, end: endOfDay })
-            .orderBy('CASE WHEN visit.appointment_id IS NOT NULL THEN 0 ELSE 1 END', 'ASC')
-            .addOrderBy('visit.queue_number', 'ASC')
-            .getMany();
+            .where('visit.checked_in_at BETWEEN :start AND :end', {
+                start: startOfDay,
+                end: endOfDay,
+            });
+
+        // Filter trạng thái
+        if (visitFilter !== 'all') {
+            query.andWhere('visit.visit_status = :status', {
+                status: visitFilter,
+            });
+        }
+        // Filter theo có / không có lịch hẹn
+        if (appointmentType !== 'all') {
+            if (appointmentType === 'true') {
+                query.andWhere('visit.appointment_id IS NOT NULL');
+            } else if (appointmentType === 'false') {
+                query.andWhere('visit.appointment_id IS NULL');
+            }
+        }
+        // Search
+        if (keyword) {
+            query.andWhere(
+                `(patient.patient_full_name LIKE :keyword 
+                OR patient.patient_phone LIKE :keyword
+                OR patient.fatherORmother_phone LIKE :keyword)`,
+                { keyword: `%${keyword}%` }
+            );
+        }
+        // Ưu tiên có appointment
+        query.addSelect(
+            `CASE WHEN visit.appointment_id IS NOT NULL THEN 0 ELSE 1 END`,
+            'has_appointment'
+        );
+        query
+            .orderBy('has_appointment', 'ASC')
+            .addOrderBy('visit.queue_number', 'ASC');
+        query.skip((page - 1) * limit).take(limit);
+
+        const [rows, total] = await query.getManyAndCount();
+
+        // lọc bỏ field thừa
+        const data = rows.map((item) => ({
+            id: item.id,
+            patient: {
+                id: item.patient?.id,
+                patient_full_name: item.patient?.patient_full_name,
+                patient_gender: item.patient?.patient_gender,
+                patient_phone: item.patient?.patient_phone,
+                patient_address: item.patient?.patient_address,
+                patient_dob: item.patient?.patient_dob,
+            },
+            doctor: item.doctor
+                ? {
+                    id: item.doctor.id,
+                    name: item.doctor.user?.full_name,
+                }
+                : null,
+            visit_status: item.visit_status,
+            queue_number: item.queue_number,
+            checked_in_at: item.checked_in_at,
+            hasAppointment: !!item.appointment,
+        }));
+
+        return {
+            data,
+            pagination: {
+                total,
+                totalPages: Math.ceil(total / limit),
+                page,
+                limit,
+            },
+        };
     }
+
+    // Kiểm tra xem patient đã thêm vào visit chưa
+    async checkPatientHasVisitToday(patientId: string) {
+        const startOfDay = dayjs().startOf('day').toDate();
+        const endOfDay = dayjs().endOf('day').toDate();
+
+        const visit = await this.visitRepository.findOne({
+            where: {
+                patient: { id: patientId },
+                // visit_status: Not(In(['SUCCESS', 'CANCELLED'])),
+                created_at: Between(startOfDay, endOfDay),
+            },
+            select: ['id'],
+        });
+
+        return {
+            hasVisitToday: !!visit,
+        };
+    }
+
 
     // Cập nhật trạng thái visit
     async updateVisitStatus(visitId: string, newStatus: VisitStatus) {

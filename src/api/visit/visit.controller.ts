@@ -1,4 +1,4 @@
-import { Controller, Post, Body, HttpCode, HttpStatus, UseGuards, Get, Put, Param } from '@nestjs/common';
+import { Controller, Post, Body, HttpCode, HttpStatus, UseGuards, Get, Put, Param, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { VisitService } from './visit.service';
 import { CreateVisitDto } from './dto/create-visit.dto';
@@ -9,6 +9,7 @@ import { Roles } from '../../common/guards/roles.decorator';
 import { UserRole } from '../../shared/enums/user-role.enum';
 import { VisitStatus } from 'src/shared/enums/visit-status.enum';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
+import { QueryVisitDTO } from './dto/query-visit.dto';
 
 @ApiTags('visit')
 @ApiBearerAuth()
@@ -16,7 +17,6 @@ import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 @Controller('api/v1/visit')
 export class VisitController {
     constructor(private readonly visitService: VisitService) { }
-
 
     @Get('queue')
     @HttpCode(HttpStatus.OK)
@@ -26,8 +26,16 @@ export class VisitController {
         description: 'Danh sách visit trong ngày',
         type: [Visit]
     })
-    async getTodayQueue() {
-        return this.visitService.getTodayQueue();
+    async getTodayQueue(@Query() dto: QueryVisitDTO) {
+        return this.visitService.getTodayQueue(dto);
+    }
+
+    @Get('check-today/:patientId')
+    @HttpCode(HttpStatus.OK)
+    @ApiOperation({ summary: 'Kiểm tra bệnh nhân xem đã có trong danh sách visit theo ngày chưa' })
+    @Roles(UserRole.RECEPTIONIST)
+    async checkVisitToday(@Param('patientId') patientId: string) {
+        return this.visitService.checkPatientHasVisitToday(patientId);
     }
 
     @Get(':id')
@@ -39,7 +47,7 @@ export class VisitController {
         type: Visit
     })
     @Roles(UserRole.RECEPTIONIST)
-    async getVisitDetail(@Param('id') visitId: string, @CurrentUser() user:any) {
+    async getVisitDetail(@Param('id') visitId: string, @CurrentUser() user: any) {
         return this.visitService.findOneWithTicket(visitId, user);
     }
 
