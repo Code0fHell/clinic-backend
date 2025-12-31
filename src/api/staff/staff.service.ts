@@ -25,6 +25,69 @@ export class StaffService {
     return this.staffRepository.find({ relations: ['user'] });
   }
 
+  // Lấy danh sách nhân viên với phân trang và filter
+  async findAllWithPagination(
+    page: number = 1,
+    limit: number = 10,
+    role?: UserRole,
+    department?: string,
+    search?: string,
+  ) {
+    const skip = (page - 1) * limit;
+    const queryBuilder = this.staffRepository
+      .createQueryBuilder('staff')
+      .leftJoinAndSelect('staff.user', 'user')
+      .select([
+        'staff.id',
+        'staff.department',
+        'staff.position',
+        'staff.license_number',
+        'staff.doctor_type',
+        'staff.is_available',
+        'user.id',
+        'user.username',
+        'user.email',
+        'user.full_name',
+        'user.user_role',
+        'user.phone',
+        'user.avatar',
+      ])
+      .orderBy('user.full_name', 'ASC');
+
+    // Filter theo role
+    if (role) {
+      queryBuilder.andWhere('user.user_role = :role', { role });
+    }
+
+    // Filter theo department
+    if (department) {
+      queryBuilder.andWhere('staff.department LIKE :department', {
+        department: `%${department}%`,
+      });
+    }
+
+    // Search theo tên hoặc email
+    if (search) {
+      queryBuilder.andWhere(
+        '(user.full_name LIKE :search OR user.email LIKE :search OR user.username LIKE :search)',
+        { search: `%${search}%` },
+      );
+    }
+
+    const [data, total] = await queryBuilder
+      .skip(skip)
+      .take(limit)
+      .getManyAndCount();
+
+    return {
+      data,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
   // Lấy ra nhân viên theo ID
   async findById(id: string) {
     return this.staffRepository.findOne({ where: { id }, relations: ['user'] });
@@ -56,13 +119,72 @@ export class StaffService {
     return this.staffRepository.save(staff);
   }
 
+  // Cập nhật thông tin nhân viên
+  async updateStaff(id: string, updateData: any) {
+    const staff = await this.staffRepository.findOne({
+      where: { id },
+      relations: ['user'],
+    });
+
+    if (!staff) {
+      throw new NotFoundException('Không tìm thấy nhân viên!');
+    }
+
+    // Tách dữ liệu user và staff từ DTO
+    const { full_name, email, phone, ...staffData } = updateData;
+
+    // Cập nhật thông tin user nếu có
+    if (full_name !== undefined || email !== undefined || phone !== undefined) {
+      // Kiểm tra email trùng (nếu thay đổi)
+      if (email && email !== staff.user.email) {
+        const existingUser = await this.userRepository.findOne({
+          where: { email },
+        });
+
+        if (existingUser && existingUser.id !== staff.user.id) {
+          throw new ForbiddenException('Email đã tồn tại!');
+        }
+      }
+
+      // Cập nhật user
+      if (full_name !== undefined) staff.user.full_name = full_name;
+      if (email !== undefined) staff.user.email = email;
+      if (phone !== undefined) staff.user.phone = phone;
+      
+      await this.userRepository.save(staff.user);
+    }
+
+    // Cập nhật thông tin staff
+    Object.keys(staffData).forEach((key) => {
+      if (staffData[key] !== undefined && staffData[key] !== null && staffData[key] !== '') {
+        staff[key] = staffData[key];
+      }
+    });
+    
+    return this.staffRepository.save(staff);
+  }
+
   // Xóa nhân viên theo ID
   async deleteStaff(id: string) {
     const staff = await this.staffRepository.findOne({ where: { id }, relations: ['user'] });
-    if (!staff) throw new NotFoundException('Staff not found');
-    await this.staffRepository.remove(staff);
-    if (staff.user) await this.userRepository.remove(staff.user);
-    return { message: 'Staff deleted' };
+    if (!staff) throw new NotFoundException('Không tìm thấy nhân viên');
+
+    try {
+      // Thử xóa staff và user
+      await this.staffRepository.remove(staff);
+      if (staff.user) await this.userRepository.remove(staff.user);
+      return { message: 'Xóa nhân viên thành công!' };
+    } catch (error) {
+      // Nếu có ràng buộc foreign key, đánh dấu is_available = false
+      if (error.code === 'ER_ROW_IS_REFERENCED_2' || error.message.includes('foreign key constraint')) {
+        staff.is_available = false;
+        await this.staffRepository.save(staff);
+        throw new ForbiddenException(
+          'Không thể xóa nhân viên này vì đã có dữ liệu liên quan. Nhân viên đã được đánh dấu là không hoạt động.'
+        );
+      }
+      throw error;
+    }
   }
 
   // Phân quyền bác sĩ
