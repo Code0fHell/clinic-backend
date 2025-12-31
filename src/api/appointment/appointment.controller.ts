@@ -9,7 +9,6 @@ import {
     Put,
     HttpCode,
     HttpStatus,
-    NotFoundException,
 } from "@nestjs/common";
 import { AppointmentService } from "./appointment.service";
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse } from "@nestjs/swagger";
@@ -48,6 +47,15 @@ export class AppointmentController {
         return this.appointmentService.guestBookAppointment(dto);
     }
 
+    @Get("my")
+    @Roles("PATIENT")
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @ApiOperation({ summary: "Get appointments of current patient" })
+    async getMyAppointments(@Req() req) {
+        const userId = req.user.id;
+        return this.appointmentService.getAppointmentsForPatient(userId);
+    }
+
     @Get("all") // API lấy tất cả cuộc hẹn
     @ApiOperation({ summary: "Get all appointments" })
     async getAllAppointments() {
@@ -82,5 +90,14 @@ export class AppointmentController {
     @ApiOperation( { summary: "Update appointment status"})
     async updateAppointmentStatus(@Param("id") appointmentId: string, @Body("appointment_status") appointmentStatus: AppointmentStatus) {
         return this.appointmentService.updateAppointmentStatus(appointmentId, appointmentStatus);
+    }
+
+    @Put(":id/cancel")
+    @Roles("PATIENT")
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @ApiOperation({ summary: "Patient cancel own appointment" })
+    async cancelMyAppointment(@Req() req, @Param("id") appointmentId: string) {
+        const userId = req.user.id;
+        return this.appointmentService.cancelAppointment(userId, appointmentId);
     }
 }

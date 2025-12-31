@@ -31,10 +31,10 @@ export class AppointmentService {
         @InjectRepository(Appointment)
         private readonly appointmentRepository: Repository<Appointment>,
         @InjectRepository(User)
-        private readonly userRepository: Repository<User>,
-        @Inject(forwardRef(() => NotificationService))
-        private readonly notificationService: NotificationService
-    ) {}
+    private readonly userRepository: Repository<User>,
+    @Inject(forwardRef(() => NotificationService))
+    private readonly notificationService: NotificationService
+  ) {}
 
     async getUserWithStaff(userId: string) {
         const user = await this.userRepository.findOne({
@@ -357,7 +357,68 @@ export class AppointmentService {
             relations: ["doctor", "doctor.user", "patient", "schedule_detail"],
             order: { scheduled_date: "ASC" },
         });
+  }
+
+  // Lấy danh sách lịch hẹn của bệnh nhân hiện tại
+  async getAppointmentsForPatient(userId: string) {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      relations: ["patient"],
+    });
+
+    if (!user || !user.patient) {
+      throw new NotFoundException("Patient profile not found for this user");
     }
+
+    return this.appointmentRepository.find({
+      where: { patient: { id: user.patient.id } },
+      relations: ["doctor", "doctor.user", "patient", "schedule_detail"],
+      order: { scheduled_date: "ASC" },
+    });
+  }
+
+  // Bệnh nhân hủy lịch hẹn của chính mình (trước 1 ngày so với giờ khám)
+  async cancelAppointment(userId: string, appointmentId: string) {
+    const appointment = await this.appointmentRepository.findOne({
+      where: { id: appointmentId },
+      relations: ["patient", "patient.user", "schedule_detail"],
+    });
+
+    if (!appointment) {
+      throw new NotFoundException("Appointment not found");
+    }
+
+    // Kiểm tra quyền sở hữu lịch hẹn
+    if (appointment.patient?.user?.id !== userId) {
+      throw new BadRequestException("Bạn không có quyền hủy lịch hẹn này");
+    }
+
+    // Chỉ cho phép hủy nếu còn ít nhất 1 ngày trước giờ khám
+    const now = dayjs();
+    const scheduled = dayjs(appointment.scheduled_date);
+    const cutoff = scheduled.subtract(1, "day");
+
+    if (now.isAfter(cutoff)) {
+      throw new BadRequestException(
+        "Bạn chỉ được phép hủy lịch hẹn trước ít nhất 1 ngày so với thời gian khám"
+      );
+    }
+
+    // Cập nhật trạng thái cuộc hẹn
+    appointment.status = AppointmentStatus.CANCELLED;
+    await this.appointmentRepository.save(appointment);
+
+    // Giải phóng lại slot nếu có
+    if (appointment.schedule_detail) {
+      appointment.schedule_detail.is_booked = false;
+      await this.workScheduleDetailRepository.save(appointment.schedule_detail);
+    }
+
+    return {
+      message: "Hủy lịch hẹn thành công",
+      status: appointment.status,
+    };
+  }
 
     private validateScheduledDate(date: Date | string) {
         const selected = dayjs(date).startOf("day");

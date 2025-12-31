@@ -10,8 +10,13 @@ import { AllExceptionsFilter } from "./common/filters/http-exception.filter";
 async function bootstrap() {
     const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
+    // CORS configuration - support both development and Docker
+    const allowedOrigins = process.env.CORS_ORIGINS 
+        ? process.env.CORS_ORIGINS.split(',')
+        : ["http://localhost:5173", "http://localhost:80", "http://localhost"];
+    
     app.enableCors({
-        origin: ["http://localhost:5173"],
+        origin: allowedOrigins,
         methods: "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS",
         credentials: true,
         allowedHeaders: "Content-Type, Authorization, X-Requested-With, Accept",
@@ -60,6 +65,8 @@ async function bootstrap() {
             forbidNonWhitelisted: true,
         })
     );
-    await app.listen(3000);
+    const port = process.env.PORT || 3000;
+    await app.listen(port);
+    console.log(`Application is running on: http://localhost:${port}`);
 }
 bootstrap();
