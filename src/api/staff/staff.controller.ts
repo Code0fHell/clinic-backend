@@ -1,14 +1,16 @@
 import {
   Controller, Get, Param, UseGuards, Post, Body, Delete, HttpCode,
-  HttpStatus
+  HttpStatus, Query, Put
 } from '@nestjs/common';
 import { StaffService } from './staff.service';
-import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/guards/roles.decorator';
 import { CreateStaffDto } from './dto/create-staff.dto';
+import { UpdateStaffDto } from './dto/update-staff.dto';
 import { AuthorizeDoctorDto } from './dto/authorize-doctor.dto';
 import { DoctorType } from 'src/shared/enums/doctor-type.enum';
+import { UserRole } from 'src/shared/enums/user-role.enum';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 
 @ApiTags('staff')
@@ -47,6 +49,31 @@ export class StaffController {
     return this.staffService.findAll();
   }
 
+  @Get('paginated')
+  @ApiOperation({ summary: 'Get all staff with pagination and filters (Admin only)' })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'role', required: false, enum: UserRole })
+  @ApiQuery({ name: 'department', required: false, type: String })
+  @ApiQuery({ name: 'search', required: false, type: String })
+  @Roles('ADMIN', 'OWNER')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  async getAllPaginated(
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+    @Query('role') role?: UserRole,
+    @Query('department') department?: string,
+    @Query('search') search?: string,
+  ) {
+    return this.staffService.findAllWithPagination(
+      page || 1,
+      limit || 10,
+      role,
+      department,
+      search,
+    );
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get staff by ID' })
   @Roles('ADMIN', 'OWNER')
@@ -61,6 +88,14 @@ export class StaffController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   async addStaff(@Body() dto: CreateStaffDto) {
     return this.staffService.createStaff(dto);
+  }
+
+  @Put(':id')
+  @ApiOperation({ summary: 'Update staff information (admin/owner only)' })
+  @Roles('ADMIN', 'OWNER')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  async updateStaff(@Param('id') id: string, @Body() dto: UpdateStaffDto) {
+    return this.staffService.updateStaff(id, dto);
   }
 
   @Delete(':id')
