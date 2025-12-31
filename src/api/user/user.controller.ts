@@ -6,6 +6,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { UserService } from './user.service';
 import { extname, join } from 'path';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { CreatePatientAccountDto } from './dto/create-patient-account.dto';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -123,5 +124,12 @@ export class UserController {
   @ApiOperation({ summary: 'Get user by ID' })
   async getUser(@Param('id') id: string) {
     return this.userService.findById(id);
+  }
+
+  @Put('change-password')
+  @ApiOperation({ summary: 'Change user password' })
+  async changePassword(@CurrentUser() user, @Body() dto: ChangePasswordDto) {
+    const userId = user.userId;
+    return this.userService.changePassword(userId, dto);
   }
 }
