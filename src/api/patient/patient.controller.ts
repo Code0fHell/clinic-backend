@@ -9,6 +9,8 @@ import {
     UseGuards,
     Get,
     Put,
+    Query,
+    Res
 } from '@nestjs/common';
 import {
     ApiOperation,
@@ -28,6 +30,8 @@ import { WorkScheduleDetail } from 'src/shared/entities/work-schedule-detail.ent
 import { Staff } from '../../shared/entities/staff.entity';
 import { UpdatePatientDto } from './dto/update-patient.dto';
 import { UpdatePatientVitalsDto } from './dto/update-patient-vitals.dto';
+import { QueryPatientDTO } from './dto/query-patient.dto';
+import type { Response } from 'express';
 
 @ApiTags('patient')
 @ApiBearerAuth()
@@ -74,8 +78,8 @@ export class PatientController {
         type: Patient,
     })
     @Roles(UserRole.RECEPTIONIST)
-    async getAllPaient() {
-        return await this.patientService.getAllPatient();
+    async getAllPaient(@Query() dto: QueryPatientDTO) {
+        return await this.patientService.getAllPatient(dto);
     }
 
     @Patch('link-account')
@@ -123,5 +127,16 @@ export class PatientController {
         @Body() dto: UpdatePatientVitalsDto,
     ) {
         return this.patientService.updatePatientVitals(patientId, dto);
+    }
+
+    @Get('export-excel')
+    @HttpCode(HttpStatus.OK)
+    @ApiOperation({ summary: 'Xuất file excel' })
+    @Roles(UserRole.RECEPTIONIST)
+    exportPatientExcel(
+        @Query() dto: QueryPatientDTO,
+        @Res() res: Response,
+    ) {
+        return this.patientService.exportPatientToExcel(dto, res);
     }
 }

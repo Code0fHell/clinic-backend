@@ -10,12 +10,14 @@ import { User } from '../../shared/entities/user.entity';
 import { WorkScheduleDetail } from 'src/shared/entities/work-schedule-detail.entity';
 import { Staff } from '../../shared/entities/staff.entity';
 import { WorkSchedule } from 'src/shared/entities/work-schedule.entity';
-import { Between } from 'typeorm';
 import { CreatePatientDto } from './dto/create-patient.dto';
 import { LinkPatientAccountDto } from './dto/link-patient-account.dto';
 import { UpdatePatientVitalsDto } from './dto/update-patient-vitals.dto';
 import { UserRole } from 'src/shared/enums/user-role.enum';
 import { UpdatePatientDto } from './dto/update-patient.dto';
+import { QueryPatientDTO } from './dto/query-patient.dto';
+import * as ExcelJS from 'exceljs';
+import { Response } from 'express';
 
 @Injectable()
 export class PatientService {
@@ -35,7 +37,6 @@ export class PatientService {
         @InjectRepository(WorkScheduleDetail)
         private workScheduleDetailRepository: Repository<WorkScheduleDetail>,
     ) { }
-
 
     // Lễ tân tạo hồ sơ bệnh nhân chưa có tài khoản
     async createPatientWithoutAccount(dto: CreatePatientDto): Promise<Patient> {
@@ -93,23 +94,125 @@ export class PatientService {
         return await this.patientRepo.save(patient);
     }
 
-    // Lấy ra danh sách tất cả bệnh nhân
-    async getAllPatient() {
-        const patients = await this.patientRepo.find();
+    // Lấy ra danh sách bệnh nhân, search, phân trang
+    async getAllPatient(dto: QueryPatientDTO, isExport = false) {
+        const { keyword, page = 1, limit = 10, visitFilter = 'all' } = dto;
+        const vietnamDate = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+        const visitDate = vietnamDate.toLocaleDateString('en-CA'); // yyyy-mm-dd
+        const startOfDay = `${visitDate} 00:00:00`;
+        const endOfDay = `${visitDate} 23:59:59`;
+        const query = this.patientRepo.createQueryBuilder('patient');
 
-        if (patients.length === 0) {
+        // ===== SEARCH =====
+        if (keyword) {
+            query.andWhere(
+                `(patient.patient_full_name LIKE :keyword
+              OR patient.patient_phone LIKE :keyword
+              OR patient.fatherORmother_phone LIKE :keyword)`,
+                { keyword: `%${keyword}%` }
+            );
+        }
+
+        // ===== SET PARAMETERS =====
+        query.setParameters({ startOfDay, endOfDay });
+
+        // ===== FILTER THEO VISIT =====
+        if (visitFilter === 'added') {
+            query.andWhere(
+                `EXISTS (
+                SELECT 1
+                FROM visit v
+                WHERE v.patient_id = patient.id
+                AND v.checked_in_at BETWEEN :startOfDay AND :endOfDay
+            )`
+            );
+        }
+
+        if (visitFilter === 'not_added') {
+            query.andWhere(
+                `NOT EXISTS (
+                SELECT 1
+                FROM visit v
+                WHERE v.patient_id = patient.id
+                AND v.checked_in_at BETWEEN :startOfDay AND :endOfDay
+            )`
+            );
+        }
+
+        // ===== FLAG hasVisitToday =====
+        query.addSelect(
+            `CAST(CASE 
+            WHEN EXISTS (
+                SELECT 1
+                FROM visit v
+                WHERE v.patient_id = patient.id
+                AND v.checked_in_at BETWEEN :startOfDay AND :endOfDay
+            )
+            THEN 1
+            ELSE 0
+        END AS UNSIGNED)`,
+            'patient_hasVisitToday'
+        );
+
+        // ===== SORT THEO TÊN =====
+        query
+            .orderBy(
+                "SUBSTRING_INDEX(patient.patient_full_name, ' ', -1)",
+                'ASC'
+            )
+            .addOrderBy("patient.patient_full_name", 'ASC');
+
+        // ===== EXPORT =====
+        if (isExport) {
+            const results = await query.getRawAndEntities();
+
+            const data = results.entities.map((patient, index) => {
+                const hasVisitToday = results.raw[index].patient_hasVisitToday;
+                return {
+                    ...patient,
+                    hasVisitToday: hasVisitToday === 1 || hasVisitToday === '1',
+                };
+            });
+
             return {
-                message: "Không có bệnh nhân",
-                data: [],
+                message: data.length
+                    ? 'Lấy danh sách bệnh nhân thành công'
+                    : 'Không có bệnh nhân',
+                data,
+                pagination: null,
             };
         }
 
+        // ===== PAGINATION =====
+        const total = await query.getCount();
+
+        query
+            .skip((page - 1) * limit)
+            .take(limit);
+
+        const results = await query.getRawAndEntities();
+
+        const data = results.entities.map((patient, index) => {
+            const hasVisitToday = results.raw[index].patient_hasVisitToday;
+            return {
+                ...patient,
+                hasVisitToday: hasVisitToday === 1 || hasVisitToday === '1',
+            };
+        });
+
         return {
-            message: "Lấy danh sách bệnh nhân thành công",
-            data: patients,
+            message: data.length
+                ? 'Lấy danh sách bệnh nhân thành công'
+                : 'Không có bệnh nhân',
+            data,
+            pagination: {
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit),
+            },
         };
     }
-
 
     // Ánh xạ tài khoản vừa đăng ký sang hồ sơ bệnh nhân có sẵn
     async linkAccountToExistingPatient(dto: LinkPatientAccountDto): Promise<Patient> {
@@ -206,7 +309,6 @@ export class PatientService {
         return result;
     }
 
-
     async updatePatientVitals(patientId: string, dto: UpdatePatientVitalsDto) {
         const patient = await this.patientRepo.findOne({
             where: { id: patientId },
@@ -224,5 +326,56 @@ export class PatientService {
         patient.medical_history = dto.medical_history ?? patient.medical_history;
 
         return this.patientRepo.save(patient);
+    }
+
+    // Xuất dữ liệu bệnh nhân ra file excel
+    async exportPatientToExcel(dto: QueryPatientDTO, res: Response) {
+        const result = await this.getAllPatient(dto, true);
+        const patients = result.data;
+
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet('Danh sách bệnh nhân');
+
+        // Header & Style header
+        worksheet.columns = [
+            { header: 'STT', key: 'index', width: 6 },
+            { header: 'Họ tên', key: 'name', width: 25 },
+            { header: 'Số điện thoại', key: 'phone', width: 18 },
+            { header: 'Địa chỉ', key: 'address', width: 25 },
+            { header: 'SĐT người thân', key: 'parentPhone', width: 18 },
+            { header: 'Chiều cao', key: 'height', width: 25 },
+            { header: 'Cân nặng', key: 'weight', width: 25 },
+            { header: 'Giới tính', key: 'gender', width: 12 },
+            { header: 'Ngày sinh', key: 'dob', width: 15 },
+        ];
+        worksheet.getRow(1).font = { bold: true };
+
+        // Data
+        patients.forEach((p, index) => {
+            worksheet.addRow({
+                index: index + 1,
+                name: p.patient_full_name,
+                phone: p.patient_phone,
+                address: p.patient_address,
+                parentPhone: p.fatherORmother_phone,
+                height: p.height || '',
+                weight: p.weight || '',
+                gender: p.patient_gender === 'NAM' ? 'Nam' : 'Nữ',
+                dob: p.patient_dob || '',
+            });
+        });
+
+        // Xuất file
+        res.setHeader(
+            'Content-Type',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        );
+        res.setHeader(
+            'Content-Disposition',
+            'attachment; filename=danh_sach_benh_nhan.xlsx',
+        );
+
+        await workbook.xlsx.write(res);
+        res.end();
     }
 }
