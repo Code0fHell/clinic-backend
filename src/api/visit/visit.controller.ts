@@ -30,14 +30,6 @@ export class VisitController {
         return this.visitService.getTodayQueue(dto);
     }
 
-    @Get('check-today/:patientId')
-    @HttpCode(HttpStatus.OK)
-    @ApiOperation({ summary: 'Kiểm tra bệnh nhân xem đã có trong danh sách visit theo ngày chưa' })
-    @Roles(UserRole.RECEPTIONIST)
-    async checkVisitToday(@Param('patientId') patientId: string) {
-        return this.visitService.checkPatientHasVisitToday(patientId);
-    }
-
     @Get(':id')
     @HttpCode(HttpStatus.OK)
     @ApiOperation({ summary: 'Lấy ra chi tiết visit' })

@@ -50,7 +50,28 @@ export class VisitService {
                 relations: ['doctor'],
             });
             if (!appointment) throw new NotFoundException(`Appointment với id ${dto.appointment_id} không tồn tại`);
-            doctor = appointment.doctor;
+            // Ưu tiên dùng doctor_id từ DTO (bác sĩ thay thế khi gốc nghỉ)
+            if (dto.doctor_id) {
+                doctor = await this.staffRepository.findOne({ where: { id: dto.doctor_id } });
+                if (!doctor) throw new NotFoundException(`Doctor với id ${dto.doctor_id} không tồn tại`);
+
+                // Nếu có chọn khung giờ → đánh dấu đã đặt (giống walk-in)
+                if (dto.work_schedule_detail_id) {
+                    const slot = await this.workScheduleDetailRepository.findOne({
+                        where: { id: dto.work_schedule_detail_id, is_booked: false },
+                        relations: ['schedule', 'schedule.staff'],
+                    });
+                    if (!slot) throw new BadRequestException('Khung giờ đã bị đặt hoặc không tồn tại');
+                    if (slot.schedule.staff.id !== doctor.id) {
+                        throw new BadRequestException('Khung giờ không thuộc bác sĩ đã chọn');
+                    }
+                    slot.is_booked = true;
+                    await this.workScheduleDetailRepository.save(slot);
+                }
+            } else {
+                // Bác sĩ gốc đi làm bình thường
+                doctor = appointment.doctor;
+            }
 
             appointment.status = AppointmentStatus.CHECKED_IN;
             await this.appointmentRepository.save(appointment);
@@ -196,9 +217,11 @@ export class VisitService {
                 }
                 : null,
             visit_status: item.visit_status,
+            reason: item.appointment?.reason,
             queue_number: item.queue_number,
             checked_in_at: item.checked_in_at,
             hasAppointment: !!item.appointment,
+            isPrinted: item.is_printed
         }));
 
         return {
@@ -211,26 +234,6 @@ export class VisitService {
             },
         };
     }
-
-    // Kiểm tra xem patient đã thêm vào visit chưa
-    async checkPatientHasVisitToday(patientId: string) {
-        const startOfDay = dayjs().startOf('day').toDate();
-        const endOfDay = dayjs().endOf('day').toDate();
-
-        const visit = await this.visitRepository.findOne({
-            where: {
-                patient: { id: patientId },
-                // visit_status: Not(In(['SUCCESS', 'CANCELLED'])),
-                created_at: Between(startOfDay, endOfDay),
-            },
-            select: ['id'],
-        });
-
-        return {
-            hasVisitToday: !!visit,
-        };
-    }
-
 
     // Cập nhật trạng thái visit
     async updateVisitStatus(visitId: string, newStatus: VisitStatus) {
@@ -259,11 +262,14 @@ export class VisitService {
             relations: [
                 'patient',
                 'medicalTickets',
+                'medicalTickets.indications',
+                'medicalTickets.indications.doctor.user',
                 'doctor',
                 'doctor.user', // để lấy tên bác sĩ từ user
             ],
             select: {
                 id: true,
+                is_printed: true,
                 patient: {
                     id: true,
                     patient_full_name: true,
@@ -276,7 +282,13 @@ export class VisitService {
                 },
                 medicalTickets: {
                     id: true,
-                    clinical_fee: true
+                    clinical_fee: true,
+                    issued_at: true,
+                    indications: {
+                        id: true,
+                        total_fee: true,
+                        indication_type: true,
+                    },
                 },
             },
         });
