@@ -50,6 +50,16 @@ export class VisitService {
                 relations: ['doctor'],
             });
             if (!appointment) throw new NotFoundException(`Appointment với id ${dto.appointment_id} không tồn tại`);
+
+            // CHECK NGÀY KHÁM THỰC TẾ
+            const scheduledDate = dayjs(appointment.scheduled_date);
+
+            if (!scheduledDate.isSame(dayjs(), 'day')) {
+                throw new BadRequestException(
+                    'Chỉ được tạo thăm khám đúng ngày đã đặt'
+                );
+            }
+
             // Ưu tiên dùng doctor_id từ DTO (bác sĩ thay thế khi gốc nghỉ)
             if (dto.doctor_id) {
                 doctor = await this.staffRepository.findOne({ where: { id: dto.doctor_id } });
