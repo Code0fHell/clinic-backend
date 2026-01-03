@@ -225,9 +225,51 @@ export class BillService {
         }
         // Lọc theo trạng thái thanh toán
         if (paymentStatus !== 'all') {
-            query.andWhere('payment.payment_status = :paymentStatus', {
-                paymentStatus,
-            });
+            // SUCCESS: có payment SUCCESS
+            if (paymentStatus === PaymentStatus.SUCCESS) {
+                query.andWhere(
+                    `EXISTS (
+                SELECT 1
+                FROM payment p
+                WHERE p.bill_id = bill.id
+                AND p.payment_status = :successStatus
+            )`,
+                    { successStatus: PaymentStatus.SUCCESS }
+                );
+            }
+            // PENDING: chưa có payment HOẶC payment PENDING
+            if (paymentStatus === PaymentStatus.PENDING) {
+                query.andWhere(
+                    `NOT EXISTS (
+                SELECT 1
+                FROM payment p
+                WHERE p.bill_id = bill.id
+                AND p.payment_status = :successStatus
+            )`,
+                    { successStatus: PaymentStatus.SUCCESS }
+                );
+            }
+            // FAILED: có FAILED nhưng không có SUCCESS
+            if (paymentStatus === PaymentStatus.FAILED) {
+                query.andWhere(
+                    `EXISTS (
+                SELECT 1
+                FROM payment p
+                WHERE p.bill_id = bill.id
+                AND p.payment_status = :failedStatus
+            )`
+                ).andWhere(
+                    `NOT EXISTS (
+                SELECT 1
+                FROM payment p
+                WHERE p.bill_id = bill.id
+                AND p.payment_status = :successStatus
+            )`
+                ).setParameters({
+                    failedStatus: PaymentStatus.FAILED,
+                    successStatus: PaymentStatus.SUCCESS,
+                });
+            }
         }
         // Phân trang
         query

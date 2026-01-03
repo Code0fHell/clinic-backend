@@ -11,8 +11,8 @@ export class QueryBillTodayDTO {
     paymentMethod?: 'all' | 'cash' | 'bank_transfer' = 'all';
 
     @IsOptional()
-    @IsIn(['all', 'pending', 'success', 'failed'])
-    paymentStatus?: 'all' | 'pending' | 'success' | 'failed' = 'all';
+    @IsIn(['all', 'PENDING', 'SUCCESS', 'FAILED'])
+    paymentStatus?: 'all' | 'PENDING' | 'SUCCESS' | 'FAILED' = 'all';
 
     @IsOptional()
     @IsString()
