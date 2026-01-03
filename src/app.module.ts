@@ -22,6 +22,7 @@ import { PrescriptionDetailModule } from "./api/prescription-detail/prescription
 import { NotificationModule } from "./api/notification/notification.module";
 import { OwnerModule } from "./api/owner/owner.module";
 import { LabTestResultModule } from "./api/lab-test-result/lab-test-result.module";
+import { EmailModule } from "./api/email/email.module";
 
 @Module({
     imports: [
@@ -67,7 +68,8 @@ import { LabTestResultModule } from "./api/lab-test-result/lab-test-result.modul
         PrescriptionDetailModule,
         NotificationModule,
         OwnerModule,
-        LabTestResultModule
+        LabTestResultModule,
+        EmailModule
     ],
     controllers: [],
     providers: [],

@@ -8,11 +8,13 @@ import { Staff } from 'src/shared/entities/staff.entity';
 import { Patient } from 'src/shared/entities/patient.entity';
 import { User } from 'src/shared/entities/user.entity';
 import { NotificationModule } from '../notification/notification.module';
+import { EmailModule } from '../email/email.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Appointment, WorkScheduleDetail, Staff, Patient, User]),
     forwardRef(() => NotificationModule),
+    EmailModule,
   ],
   providers: [AppointmentService],
   controllers: [AppointmentController],
