@@ -272,12 +272,7 @@ export class AppointmentService {
         const startOfDay = selectedDate.startOf('day').toDate();
         const endOfDay = selectedDate.endOf('day').toDate();
 
-
-        /**
-         * =============================
-         * 👨‍⚕️ DOCTOR (giữ nguyên logic)
-         * =============================
-         */
+        // DOCTOR 
         if (role === UserRole.DOCTOR) {
             if (!staffId) {
                 throw new NotFoundException(
@@ -301,11 +296,7 @@ export class AppointmentService {
             });
         }
 
-        /**
-         * =============================
-         * 🧾 RECEPTIONIST
-         * =============================
-         */
+        // RECEPTIONIST
         if (role === UserRole.RECEPTIONIST) {
             const qb = this.appointmentRepository
                 .createQueryBuilder('a')
@@ -332,6 +323,7 @@ export class AppointmentService {
                     // doctor
                     'd.id',
                     'du.full_name',
+                    'd.is_available',
                     // visit status
                     'sd.id',
                 ])
@@ -378,9 +370,10 @@ export class AppointmentService {
                     doctor: {
                         id: item.doctor?.id,
                         name: item.doctor?.user?.full_name,
+                        is_available: item.doctor?.is_available
                     },
                     scheduled_date: item.scheduled_date,
-                    reson: item.reason,
+                    reason: item.reason,
                     sesion: item.session,
                     status: item.status,
                     visitStatus: item.schedule_detail ? 'added' : 'not_added',
