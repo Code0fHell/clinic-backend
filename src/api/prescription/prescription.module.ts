@@ -9,11 +9,13 @@ import { TypeOrmModule } from '@nestjs/typeorm/dist/typeorm.module';
 import { Medicine } from 'src/shared/entities/medicine.entity';
 import { PrescriptionDetail } from 'src/shared/entities/prescription-detail.entity';
 import { NotificationModule } from '../notification/notification.module';
+import { BillModule } from '../bill/bill.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Prescription, Patient, Staff, MedicalRecord, Medicine, PrescriptionDetail]),
     forwardRef(() => NotificationModule),
+    forwardRef(() => BillModule),
   ],
   controllers: [PrescriptionController],
   providers: [PrescriptionService],

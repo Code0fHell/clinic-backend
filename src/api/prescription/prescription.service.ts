@@ -9,6 +9,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { CreatePrescriptionDto } from "./dto/create-prescription.dto";
 import { UpdatePrescriptionDto } from "./dto/update-prescription.dto";
+import { AdjustPrescriptionDto } from "./dto/adjust-prescription.dto";
 import { Prescription } from "../../shared/entities/prescription.entity";
 import { Patient } from "../../shared/entities/patient.entity";
 import { Staff } from "../../shared/entities/staff.entity";
@@ -17,6 +18,9 @@ import { Medicine } from "src/shared/entities/medicine.entity";
 import { PrescriptionDetail } from "src/shared/entities/prescription-detail.entity";
 import { NotificationService } from "../notification/notification.service";
 import { PrescriptionStatus } from "src/shared/enums/prescription-status.enum";
+import { BillService } from "../bill/bill.service";
+import { BillType } from "src/shared/enums/bill-type.enum";
+import { Bill } from "src/shared/entities/bill.entity";
 
 @Injectable()
 export class PrescriptionService {
@@ -34,7 +38,9 @@ export class PrescriptionService {
         @InjectRepository(PrescriptionDetail)
         private readonly detailRepository: Repository<PrescriptionDetail>,
         @Inject(forwardRef(() => NotificationService))
-        private readonly notificationService: NotificationService
+        private readonly notificationService: NotificationService,
+        @Inject(forwardRef(() => BillService))
+        private readonly billService: BillService
     ) {}
 
     // Tạo đơn thuốc mới
@@ -317,12 +323,100 @@ export class PrescriptionService {
         };
     }
 
-    // Duyệt đơn thuốc và cập nhật tồn kho
+    // Điều chỉnh đơn thuốc (cho dược sĩ)
+    async adjustPrescription(
+        prescriptionId: string,
+        userId: string,
+        dto: AdjustPrescriptionDto
+    ) {
+        const prescription = await this.prescriptionRepository.findOne({
+            where: { id: prescriptionId },
+            relations: ["details", "details.medicine", "patient"],
+        });
+
+        if (!prescription) {
+            throw new NotFoundException(
+                `Đơn thuốc với id: ${prescriptionId} không tồn tại`
+            );
+        }
+
+        if (prescription.status !== PrescriptionStatus.PENDING) {
+            throw new BadRequestException(
+                `Chỉ có thể điều chỉnh đơn thuốc đang chờ duyệt`
+            );
+        }
+
+        // Find pharmacist by user ID
+        const pharmacist = await this.staffRepository.findOne({
+            where: { user: { id: userId } },
+            relations: ["user"],
+        });
+
+        if (!pharmacist) {
+            throw new NotFoundException("Không tìm thấy dược sĩ");
+        }
+
+        // If medicine_items provided, update prescription details
+        if (dto.medicine_items && dto.medicine_items.length > 0) {
+            // Delete existing details
+            await this.detailRepository.delete({
+                prescription: { id: prescriptionId },
+            });
+
+            // Create new details
+            let totalFee = 0;
+            for (const item of dto.medicine_items) {
+                const medicine = await this.medicineRepository.findOne({
+                    where: { id: item.medicine_id },
+                });
+                if (!medicine) {
+                    throw new NotFoundException(
+                        `Thuốc với id: ${item.medicine_id} không tồn tại`
+                    );
+                }
+
+                const detail = this.detailRepository.create({
+                    prescription,
+                    medicine,
+                    quantity: item.quantity,
+                    dosage: item.dosage || "",
+                });
+
+                await this.detailRepository.save(detail);
+                totalFee += Number(medicine.price || 0) * item.quantity;
+            }
+
+            // Update prescription total_fee
+            prescription.total_fee = totalFee;
+            await this.prescriptionRepository.save(prescription);
+        }
+
+        // Fetch full prescription with relations
+        const fullPrescription = await this.prescriptionRepository.findOne({
+            where: { id: prescriptionId },
+            relations: [
+                "patient",
+                "patient.user",
+                "doctor",
+                "doctor.user",
+                "medical_record",
+                "details",
+                "details.medicine",
+            ],
+        });
+
+        return {
+            message: "Điều chỉnh đơn thuốc thành công",
+            data: fullPrescription,
+        };
+    }
+
+    // Duyệt đơn thuốc và cập nhật tồn kho, tự động tạo bill
     async approvePrescription(prescriptionId: string, userId: string) {
         // Find prescription with details
         const prescription = await this.prescriptionRepository.findOne({
             where: { id: prescriptionId },
-            relations: ["details", "details.medicine", "approved_by"],
+            relations: ["details", "details.medicine", "approved_by", "patient"],
         });
 
         if (!prescription) {
@@ -377,6 +471,20 @@ export class PrescriptionService {
 
         await this.prescriptionRepository.save(prescription);
 
+        // Automatically create bill for the prescription
+        let bill: Bill | null = null;
+        try {
+            bill = await this.billService.createBill({
+                patient_id: prescription.patient.id,
+                bill_type: BillType.MEDICINE,
+                prescription_id: prescription.id,
+                total: prescription.total_fee,
+            });
+        } catch (err) {
+            console.error("Error creating bill:", err);
+            // Don't fail the approval if bill creation fails
+        }
+
         // Fetch full prescription with relations
         const fullPrescription = await this.prescriptionRepository.findOne({
             where: { id: prescriptionId },
@@ -396,6 +504,7 @@ export class PrescriptionService {
         return {
             message: "Duyệt đơn thuốc thành công",
             data: fullPrescription,
+            bill: bill,
         };
     }
 
