@@ -38,6 +38,10 @@ export class PatientService {
         private workScheduleDetailRepository: Repository<WorkScheduleDetail>,
     ) { }
 
+    private toVietnamTime(date: Date): Date {
+        return new Date(date.getTime() + 7 * 60 * 60 * 1000);
+    }
+
     // Lễ tân tạo hồ sơ bệnh nhân chưa có tài khoản
     async createPatientWithoutAccount(dto: CreatePatientDto): Promise<Patient> {
         const existing = await this.patientRepo.findOne({
@@ -258,14 +262,71 @@ export class PatientService {
     }
 
     // Lấy bác sĩ có sẵn
-    async getAvailableWorkSchedulesToday(): Promise<{ doctor: Staff; freeSlots: WorkScheduleDetail[] }[]> {
+    // async getAvailableWorkSchedulesToday(): Promise<{ doctor: Staff; freeSlots: WorkScheduleDetail[] }[]> {
+    //     const now = new Date();
+    //     const yyyy = now.getFullYear();
+    //     const mm = (now.getMonth() + 1).toString().padStart(2, '0');
+    //     const dd = now.getDate().toString().padStart(2, '0');
+    //     const todayDateString = `${yyyy}-${mm}-${dd}`;
+    //     const nowVN = new Date(now.getTime() + 7 * 60 * 60 * 1000);
+    //     const nowString = nowVN.toISOString().slice(0, 19).replace('T', ' ');
+
+    //     const schedules = await this.workScheduleRepository
+    //         .createQueryBuilder('ws')
+    //         .leftJoinAndSelect('ws.staff', 'staff')
+    //         .leftJoinAndSelect('staff.room', 'room')
+    //         .leftJoinAndSelect('staff.user', 'user')
+    //         .leftJoinAndSelect('ws.details', 'details')
+    //         .where('ws.work_date = :today', { today: todayDateString })
+    //         .andWhere('details.is_booked = :isBooked', { isBooked: false })
+    //         .andWhere('details.slot_end > :now', { now: nowString })
+    //         .orderBy('staff.id', 'ASC')
+    //         .addOrderBy('details.slot_start', 'ASC')
+    //         // chỉ chọn các trường cần thiết
+    //         .select([
+    //             'ws.id',
+    //             'ws.work_date',
+    //             'staff.id',
+    //             'staff.position',
+    //             'staff.department',
+    //             'staff.is_available',
+    //             'room.id',
+    //             'room.room_name',
+    //             'user.id',
+    //             'user.full_name',
+    //             'user.email',
+    //             'details.id',
+    //             'details.slot_start',
+    //             'details.slot_end',
+    //             'details.is_booked',
+    //         ])
+    //         .getMany();
+
+    //     // Gom dữ liệu theo bác sĩ, lọc chỉ những người còn slot trống hợp lệ
+    //     const result = schedules
+    //         .map((schedule) => ({
+    //             doctor: schedule.staff,
+    //             freeSlots: schedule.details || [],
+    //         }))
+    //         .filter((r) => r.freeSlots.length > 0);
+
+    //     return result;
+    // }
+    async getAvailableWorkSchedulesToday(): Promise<
+        { doctor: Staff; freeSlots: WorkScheduleDetail[] }[]
+    > {
         const now = new Date();
+
+        // Lấy ngày hiện tại theo giờ Việt Nam (local time)
         const yyyy = now.getFullYear();
         const mm = (now.getMonth() + 1).toString().padStart(2, '0');
         const dd = now.getDate().toString().padStart(2, '0');
         const todayDateString = `${yyyy}-${mm}-${dd}`;
-        const nowVN = new Date(now.getTime() + 7 * 60 * 60 * 1000);
-        const nowString = nowVN.toISOString().slice(0, 19).replace('T', ' ');
+
+        // Lấy giờ hiện tại theo local (VN) dạng YYYY-MM-DD HH:mm:ss
+        const nowString = `${yyyy}-${mm}-${dd} ${now
+            .toTimeString()
+            .slice(0, 8)}`;
 
         const schedules = await this.workScheduleRepository
             .createQueryBuilder('ws')
@@ -274,11 +335,11 @@ export class PatientService {
             .leftJoinAndSelect('staff.user', 'user')
             .leftJoinAndSelect('ws.details', 'details')
             .where('ws.work_date = :today', { today: todayDateString })
+            .andWhere('staff.is_available = :available', { available: true })
             .andWhere('details.is_booked = :isBooked', { isBooked: false })
             .andWhere('details.slot_end > :now', { now: nowString })
             .orderBy('staff.id', 'ASC')
             .addOrderBy('details.slot_start', 'ASC')
-            // chỉ chọn các trường cần thiết
             .select([
                 'ws.id',
                 'ws.work_date',
@@ -298,16 +359,20 @@ export class PatientService {
             ])
             .getMany();
 
-        // Gom dữ liệu theo bác sĩ, lọc chỉ những người còn slot trống hợp lệ
-        const result = schedules
+        // Gom theo bác sĩ, chỉ giữ người còn slot trống hợp lệ
+        return schedules
             .map((schedule) => ({
                 doctor: schedule.staff,
-                freeSlots: schedule.details || [],
+                freeSlots: (schedule.details || []).map((detail) => ({
+                    ...detail,
+                    slot_start: this.toVietnamTime(new Date(detail.slot_start)),
+                    slot_end: this.toVietnamTime(new Date(detail.slot_end)),
+                })),
             }))
             .filter((r) => r.freeSlots.length > 0);
 
-        return result;
     }
+
 
     async updatePatientVitals(patientId: string, dto: UpdatePatientVitalsDto) {
         const patient = await this.patientRepo.findOne({

@@ -144,21 +144,29 @@ export class BillService {
         }
 
         // Kiểm tra giao dịch đang pending/failed trong ngày
-        const pendingOrFailedPaymentToday = await this.billRepository
+        const unpaidBillToday = await this.billRepository
             .createQueryBuilder('bill')
-            .leftJoinAndSelect('bill.payments', 'payment')
-            .leftJoinAndSelect('bill.patient', 'patient')
-            .where('patient.id = :patientId', { patientId: dto.patient_id })
-            .andWhere('payment.payment_status IN (:...statuses)', {
-                statuses: [PaymentStatus.PENDING, PaymentStatus.FAILED],
+            .where('bill.patient_id = :patientId', {
+                patientId: dto.patient_id,
             })
-            .andWhere('payment.paid_at BETWEEN :start AND :end', {
+            .andWhere('bill.created_at BETWEEN :start AND :end', {
                 start: startOfDay,
                 end: endOfDay,
             })
+            .andWhere(qb => {
+                const sub = qb.subQuery()
+                    .select('1')
+                    .from('payment', 'p')
+                    .where('p.bill_id = bill.id')
+                    .andWhere('p.payment_status = :paid')
+                    .getQuery();
+
+                return `NOT EXISTS ${sub}`;
+            })
+            .setParameter('paid', PaymentStatus.SUCCESS)
             .getOne();
 
-        if (pendingOrFailedPaymentToday) {
+        if (unpaidBillToday) {
             throw new BadRequestException(
                 "Bệnh nhân đang có giao dịch chưa thanh toán trong hôm nay"
             );
