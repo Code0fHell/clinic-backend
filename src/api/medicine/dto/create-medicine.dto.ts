@@ -37,12 +37,34 @@ export class CreateMedicineDto {
   description?: string;
 
   @ApiProperty({
-    description: 'Giá bán của thuốc (VNĐ)',
+    description: 'Giá bán của thuốc (VNĐ) - giữ để tương thích',
     example: 15000,
+    required: false,
   })
   @IsNumber({}, { message: 'Giá thuốc phải là số' })
   @Min(0, { message: 'Giá thuốc phải lớn hơn hoặc bằng 0' })
-  price: number;
+  @IsOptional()
+  price?: number;
+
+  @ApiProperty({
+    description: 'Giá nhập của thuốc (VNĐ)',
+    example: 10000,
+    required: false,
+  })
+  @IsNumber({}, { message: 'Giá nhập phải là số' })
+  @Min(0, { message: 'Giá nhập phải lớn hơn hoặc bằng 0' })
+  @IsOptional()
+  import_price?: number;
+
+  @ApiProperty({
+    description: 'Giá bán của thuốc (VNĐ)',
+    example: 15000,
+    required: false,
+  })
+  @IsNumber({}, { message: 'Giá bán phải là số' })
+  @Min(0, { message: 'Giá bán phải lớn hơn hoặc bằng 0' })
+  @IsOptional()
+  sale_price?: number;
 
   @ApiProperty({
     description: 'Danh mục thuốc (ví dụ: Kháng sinh, Giảm đau, Hạ sốt...)',

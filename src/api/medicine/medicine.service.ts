@@ -18,19 +18,28 @@ export class MedicineService {
 
   // 🩺 Tạo thuốc mới
   async create(createMedicineDto: CreateMedicineDto) {
-    const { price, stock} = createMedicineDto;
+    const { price, sale_price, import_price, stock } = createMedicineDto;
 
-    // Kiểm tra giá âm
-    if (price < 0) throw new BadRequestException('Giá thuốc không được âm');
+    // Nếu không có sale_price thì dùng price (tương thích ngược)
+    const finalSalePrice = sale_price ?? price;
+    if (finalSalePrice !== undefined && finalSalePrice < 0) {
+      throw new BadRequestException('Giá bán thuốc không được âm');
+    }
+
+    // Kiểm tra giá nhập
+    if (import_price !== undefined && import_price < 0) {
+      throw new BadRequestException('Giá nhập thuốc không được âm');
+    }
 
     // Kiểm tra tồn kho âm
     if (stock !== undefined && stock < 0)
       throw new BadRequestException('Số lượng tồn kho không được âm');
 
-
     // Tạo entity mới
     const medicine = this.medicineRepository.create({
       ...createMedicineDto,
+      sale_price: finalSalePrice,
+      price: finalSalePrice, // Giữ price để tương thích
     });
 
     const saved = await this.medicineRepository.save(medicine);
@@ -76,8 +85,27 @@ export class MedicineService {
     if (!existing)
       throw new NotFoundException(`Không tìm thấy thuốc có id: ${id}`);
 
-    if (updateMedicineDto.price !== undefined && updateMedicineDto.price < 0)
+    const { price, sale_price, import_price } = updateMedicineDto;
+
+    // Xử lý giá bán
+    if (sale_price !== undefined && sale_price < 0) {
+      throw new BadRequestException('Giá bán thuốc không được âm');
+    }
+    if (price !== undefined && price < 0) {
       throw new BadRequestException('Giá thuốc không được âm');
+    }
+
+    // Nếu có sale_price thì dùng sale_price, không thì dùng price
+    if (sale_price !== undefined) {
+      (updateMedicineDto as any).price = sale_price; // Cập nhật price để tương thích
+    } else if (price !== undefined) {
+      (updateMedicineDto as any).sale_price = price; // Cập nhật sale_price nếu chỉ có price
+    }
+
+    // Kiểm tra giá nhập
+    if (import_price !== undefined && import_price < 0) {
+      throw new BadRequestException('Giá nhập thuốc không được âm');
+    }
 
     if (updateMedicineDto.stock !== undefined && updateMedicineDto.stock < 0)
       throw new BadRequestException('Số lượng tồn kho không được âm');

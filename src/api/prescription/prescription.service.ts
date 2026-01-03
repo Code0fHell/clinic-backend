@@ -21,6 +21,7 @@ import { PrescriptionStatus } from "src/shared/enums/prescription-status.enum";
 import { BillService } from "../bill/bill.service";
 import { BillType } from "src/shared/enums/bill-type.enum";
 import { Bill } from "src/shared/entities/bill.entity";
+import { PaymentStatus } from "src/shared/enums/payment-status.enum";
 
 @Injectable()
 export class PrescriptionService {
@@ -411,12 +412,17 @@ export class PrescriptionService {
         };
     }
 
-    // Duyệt đơn thuốc và cập nhật tồn kho, tự động tạo bill
+    // Duyệt đơn thuốc và cập nhật tồn kho (chỉ sau khi thanh toán thành công)
     async approvePrescription(prescriptionId: string, userId: string) {
         // Find prescription with details
         const prescription = await this.prescriptionRepository.findOne({
             where: { id: prescriptionId },
-            relations: ["details", "details.medicine", "approved_by", "patient"],
+            relations: [
+                "details",
+                "details.medicine",
+                "approved_by",
+                "patient",
+            ],
         });
 
         if (!prescription) {
@@ -439,6 +445,25 @@ export class PrescriptionService {
 
         if (!pharmacist) {
             throw new NotFoundException("Không tìm thấy dược sĩ");
+        }
+
+        // Kiểm tra xem đã có bill và đã thanh toán thành công chưa
+        const bill =
+            await this.billService.getBillByPrescription(prescriptionId);
+        if (!bill) {
+            throw new BadRequestException(
+                "Chưa có hóa đơn cho đơn thuốc này. Vui lòng tạo hóa đơn và thanh toán trước khi duyệt."
+            );
+        }
+
+        // Kiểm tra thanh toán thành công
+        const hasSuccessfulPayment = bill.payments?.some(
+            (p) => p.payment_status === PaymentStatus.SUCCESS
+        );
+        if (!hasSuccessfulPayment) {
+            throw new BadRequestException(
+                "Hóa đơn chưa được thanh toán thành công. Vui lòng thanh toán trước khi duyệt."
+            );
         }
 
         // Check and update stock for each medicine
@@ -471,20 +496,6 @@ export class PrescriptionService {
 
         await this.prescriptionRepository.save(prescription);
 
-        // Automatically create bill for the prescription
-        let bill: Bill | null = null;
-        try {
-            bill = await this.billService.createBill({
-                patient_id: prescription.patient.id,
-                bill_type: BillType.MEDICINE,
-                prescription_id: prescription.id,
-                total: prescription.total_fee,
-            });
-        } catch (err) {
-            console.error("Error creating bill:", err);
-            // Don't fail the approval if bill creation fails
-        }
-
         // Fetch full prescription with relations
         const fullPrescription = await this.prescriptionRepository.findOne({
             where: { id: prescriptionId },
@@ -504,7 +515,6 @@ export class PrescriptionService {
         return {
             message: "Duyệt đơn thuốc thành công",
             data: fullPrescription,
-            bill: bill,
         };
     }
 

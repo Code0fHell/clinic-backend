@@ -277,6 +277,18 @@ export class BillService {
         };
     }
 
+    // Lấy bill theo prescription ID
+    async getBillByPrescription(prescriptionId: string) {
+        const bill = await this.billRepository.findOne({
+            where: {
+                prescription: { id: prescriptionId },
+                bill_type: BillType.MEDICINE,
+            },
+            relations: ["payments", "patient", "prescription"],
+        });
+        return bill;
+    }
+
     // Lấy danh sách hóa đơn thuốc với filters (cho dược sĩ)
     async getPrescriptionBills(dto: QueryPrescriptionBillDto) {
         const {
