@@ -7,6 +7,7 @@ import { Patient } from '../../shared/entities/patient.entity';
 import { ServiceIndication } from '../../shared/entities/service-indication.entity';
 import { Repository, Between } from 'typeorm';
 import { CreateLabTestResultDto } from './dto/create-lab-test-result.dto';
+import { QueryLabTestResultDto, FilterType } from './dto/query-lab-test-result.dto';
 import { DoctorType } from 'src/shared/enums/doctor-type.enum';
 
 @Injectable()
@@ -117,6 +118,10 @@ export class LabTestResultService {
         reference_value: serviceIndication.medical_service.reference_value,
       });
     }
+
+    // Cập nhật trạng thái phiếu chỉ định
+    indication.is_completed = true;
+    await this.indicationTicketRepository.save(indication);
 
     // Tạo barcode unique
     const barcode = await this.generateUniqueBarcode();
@@ -239,5 +244,110 @@ export class LabTestResultService {
       created_at: result.created_at,
     }));
   }
+
+  async getCompletedResultsWithFilter(query: QueryLabTestResultDto) {
+    const { filter_type = FilterType.ALL, page = 1, limit = 10 } = query;
+    
+    // Tính toán thời gian filter
+    const now = new Date();
+    let whereCondition: any = {};
+
+    switch (filter_type) {
+      case FilterType.DAY:
+        const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+        whereCondition.created_at = Between(startOfDay, endOfDay);
+        break;
+      case FilterType.WEEK:
+        const dayOfWeek = now.getDay();
+        const diff = now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1); // Monday
+        const startOfWeek = new Date(now.getFullYear(), now.getMonth(), diff);
+        startOfWeek.setHours(0, 0, 0, 0);
+        const endOfWeek = new Date(startOfWeek);
+        endOfWeek.setDate(endOfWeek.getDate() + 7);
+        whereCondition.created_at = Between(startOfWeek, endOfWeek);
+        break;
+      case FilterType.MONTH:
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+        whereCondition.created_at = Between(startOfMonth, endOfMonth);
+        break;
+      case FilterType.ALL:
+      default:
+        // Không áp dụng filter thời gian, whereCondition sẽ rỗng
+        break;
+    }
+
+    // Tính toán skip cho pagination
+    const skip = (page - 1) * limit;
+
+    // Chuẩn bị options cho findAndCount
+    const findOptions: any = {
+      relations: [
+        'patient',
+        'doctor',
+        'doctor.user',
+        'indication',
+        'indication.serviceItems',
+        'indication.serviceItems.medical_service',
+      ],
+      order: {
+        created_at: 'DESC',
+      },
+      skip: skip,
+      take: limit,
+    };
+
+    // Chỉ thêm where nếu có điều kiện filter
+    if (Object.keys(whereCondition).length > 0) {
+      findOptions.where = whereCondition;
+    }
+
+    // Lấy dữ liệu với findAndCount
+    const [results, total] = await this.labTestResultRepository.findAndCount(findOptions);
+
+    // Format dữ liệu trả về
+    const formattedResults = results.map(result => ({
+      id: result.id,
+      barcode: result.barcode,
+      indication: {
+        id: result.indication.id,
+        barcode: result.indication.barcode,
+        diagnosis: result.indication.diagnosis,
+        indication_date: result.indication.indication_date,
+      },
+      patient: {
+        id: result.patient.id,
+        patient_full_name: result.patient.patient_full_name,
+        patient_dob: result.patient.patient_dob,
+        patient_phone: result.patient.patient_phone,
+        patient_address: result.patient.patient_address,
+        patient_gender: result.patient.patient_gender,
+      },
+      doctor: {
+        id: result.doctor.id,
+        user: {
+          full_name: result.doctor.user.full_name,
+        },
+      },
+      testResults: result.indication.serviceItems.map(item => ({
+        serviceName: item.medical_service.service_name,
+        result: item.test_result,
+        referenceValue: item.medical_service.reference_value,
+      })),
+      conclusion: result.conclusion,
+      created_at: result.created_at,
+    }));
+
+    return {
+      data: formattedResults,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  
 }
 

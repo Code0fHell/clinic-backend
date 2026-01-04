@@ -51,6 +51,15 @@ export class AppointmentController {
         return this.appointmentService.guestBookAppointment(dto);
     }
 
+    @Get("my")
+    @Roles("PATIENT")
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @ApiOperation({ summary: "Get appointments of current patient" })
+    async getMyAppointments(@Req() req) {
+        const userId = req.user.id;
+        return this.appointmentService.getAppointmentsForPatient(userId);
+    }
+
     @Get("all") // API lấy tất cả cuộc hẹn
     @ApiOperation({ summary: "Get all appointments" })
     async getAllAppointments() {

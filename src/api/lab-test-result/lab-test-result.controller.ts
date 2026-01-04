@@ -1,10 +1,11 @@
-import { Controller, Post, Body, Req, UseGuards, Get, Param } from '@nestjs/common';
+import { Controller, Post, Body, Req, UseGuards, Get, Param, Query } from '@nestjs/common';
 import { LabTestResultService } from './lab-test-result.service';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/guards/roles.decorator';
 import { CreateLabTestResultDto } from './dto/create-lab-test-result.dto';
+import { QueryLabTestResultDto } from './dto/query-lab-test-result.dto';
 
 @ApiTags('lab-test-result')
 @ApiBearerAuth()
@@ -40,6 +41,13 @@ export class LabTestResultController {
   @Roles('DOCTOR')
   async getTodayCompletedResults() {
     return this.labTestResultService.getTodayCompletedResults();
+  }
+
+  @Get('completed')
+  @ApiOperation({ summary: 'Get completed lab test results with filter and pagination' })
+  @Roles('DOCTOR')
+  async getCompletedResults(@Query() query: QueryLabTestResultDto) {
+    return this.labTestResultService.getCompletedResultsWithFilter(query);
   }
 }
 

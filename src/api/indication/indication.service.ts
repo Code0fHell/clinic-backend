@@ -142,6 +142,7 @@ export class IndicationService {
             indication_date: new Date(),
             total_fee: 0,
             indication_type: indicationType,
+            is_completed: false, 
         });
         await this.indicationTicketRepository.save(indicationTicket);
 
@@ -271,6 +272,7 @@ export class IndicationService {
         const indications = await this.indicationTicketRepository.find({
             where: {
                 indication_type: IndicationType.TEST,
+                is_completed: false,
                 indication_date: Between(startOfDay, endOfDay),
             },
             relations: ['patient', 'doctor', 'doctor.user', 'serviceItems', 'serviceItems.medical_service'],

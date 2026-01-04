@@ -40,4 +40,8 @@ export class IndicationTicket {
   // loại phiếu chỉ định
   @Column({ type: 'enum', enum: IndicationType })
   indication_type: IndicationType;
+
+  // trạng thái phiếu chỉ định
+  @Column({ type: 'boolean', default: false })
+  is_completed: boolean;
 }
