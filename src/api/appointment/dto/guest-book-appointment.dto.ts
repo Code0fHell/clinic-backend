@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsString, IsNotEmpty, IsEmail, IsDateString } from 'class-validator';
+import { IsString, IsNotEmpty, IsEmail, IsDateString, IsDate } from 'class-validator';
 import { Gender } from 'src/shared/enums/gender.enum';
 
 export class GuestBookAppointmentDto {
@@ -42,12 +42,13 @@ export class GuestBookAppointmentDto {
     @ApiProperty()
     schedule_detail_id: string;
 
-    @IsDateString()
     @ApiProperty()
     @Type(() => Date)
+    @IsDate()
     appointment_date: Date;
 
-    @IsDateString()
+    @ApiProperty()
     @Type(() => Date)
+    @IsDate()
     scheduled_date: Date;
 }

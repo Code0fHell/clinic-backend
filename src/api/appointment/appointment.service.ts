@@ -88,7 +88,7 @@ export class AppointmentService {
             throw new BadRequestException(dateError);
         }
 
-        // Find entities
+        // Tìm kiếm bác sĩ, bệnh nhân với id tương ứng
         const doctor = await this.staffRepository.findOne({
             where: { id: dto.doctor_id },
         });
@@ -135,11 +135,11 @@ export class AppointmentService {
             );
         }
 
-        // Mark slot as booked
+        // Đánh dấu slot đã được đặt
         slot.is_booked = true;
         await this.workScheduleDetailRepository.save(slot);
 
-        // Create appointment
+        // Lưu lịch hẹn
         const appointment = this.appointmentRepository.create({
             doctor,
             patient,
@@ -155,7 +155,7 @@ export class AppointmentService {
         });
         await this.appointmentRepository.save(appointment);
 
-        // Create notification for patient
+        // Lưu thông báo đối với bệnh nhân
         try {
             await this.notificationService.createAppointmentNotification(
                 userId,
@@ -164,11 +164,10 @@ export class AppointmentService {
                 appointment.status
             );
         } catch (error) {
-            console.error("Failed to create notification:", error);
-            // Don't fail the appointment creation if notification fails
+            console.error("Không thể lưu thông báo:", error);
         }
 
-        return { message: "Appointment booked", appointmentId: appointment.id };
+        return { message: "Lịch hẹn đã được đặt", appointmentId: appointment.id };
     }
 
     async guestBookAppointment(dto: GuestBookAppointmentDto) {
@@ -177,7 +176,7 @@ export class AppointmentService {
             throw new BadRequestException(dateError);
         }
 
-        // Check doctor and slot
+        // Kiểm tra bác sĩ được chọn có khung giờ và slot hợp lệ
         const doctor = await this.staffRepository.findOne({
             where: { id: dto.doctor_id },
         });
@@ -207,7 +206,7 @@ export class AppointmentService {
             );
         }
 
-        // Check if user with this email already exists
+        // Kiểm tra người dùng với email này đã tồn tại chưa
         const existingUser = await this.userRepository.findOne({
             where: { email: dto.email },
         });
@@ -216,14 +215,14 @@ export class AppointmentService {
         let generatedPassword: string | null = null;
 
         if (existingUser) {
-            // User already exists, use existing account
+            // kiểm tra nếu user đã tồn tại trong hệ thống
             user = existingUser;
         } else {
-            // Generate secure password
+            // Khởi tạo mật khẩu ngẫu nhiên để gửi về email
             generatedPassword = generateSecurePassword();
             const hashedPassword = await bcrypt.hash(generatedPassword, 10);
 
-            // Create new User
+            // Lưu người dùng mới
             user = this.userRepository.create({
                 full_name: dto.full_name,
                 email: dto.email,
@@ -234,7 +233,7 @@ export class AppointmentService {
             await this.userRepository.save(user);
         }
 
-        // Create Patient
+        // Lưu bệnh nhân vào database
         const patient = this.patientRepository.create({
             user,
             patient_full_name: dto.full_name,
@@ -243,11 +242,11 @@ export class AppointmentService {
         });
         await this.patientRepository.save(patient);
 
-        // Mark slot as booked
+        // Đánh dấu slot đã được đặt
         slot.is_booked = true;
         await this.workScheduleDetailRepository.save(slot);
 
-        // Create appointment
+        // Lưu lịch hẹn
         const appointment = this.appointmentRepository.create({
             doctor,
             patient,
@@ -263,7 +262,7 @@ export class AppointmentService {
         });
         await this.appointmentRepository.save(appointment);
 
-        // Create notification for guest patient (if user exists)
+        // Tạo thông báo đối với bệnh nhân
         if (patient.user) {
             try {
                 await this.notificationService.createAppointmentNotification(
@@ -274,11 +273,10 @@ export class AppointmentService {
                 );
             } catch (error) {
                 console.error("Failed to create notification:", error);
-                // Don't fail the appointment creation if notification fails
             }
         }
 
-        // Send email with account credentials (only for new users)
+        // gửi email với thông tin tài khoản nếu là khách vãng lai
         if (generatedPassword) {
             try {
                 await this.emailService.sendGuestAccountEmail(
@@ -291,8 +289,6 @@ export class AppointmentService {
                 );
             } catch (error) {
                 console.error("Failed to send email:", error);
-                // Don't fail the appointment creation if email fails
-                // But log it for manual follow-up
             }
         }
 
