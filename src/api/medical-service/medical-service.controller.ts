@@ -7,16 +7,17 @@ import { Roles } from '../../common/guards/roles.decorator';
 import { CreateMedicalServiceDto } from './dto/create-medical-service.dto';
 import { UpdateMedicalServiceDto } from './dto/update-medical-service.dto';
 import { MedicalService } from '../../shared/entities/medical-service.entity';
+import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
 
 @ApiTags('medical-service')
 @ApiBearerAuth()
-@UseGuards(AuthGuard('jwt'), RolesGuard)
 @Controller('api/v1/medical-service')
 export class MedicalServiceController {
   constructor(private readonly medicalServiceService: MedicalServiceService) {}
 
   @Post()
   @ApiOperation({ summary: 'OWNER creates a medical service' })
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('OWNER')
   async create(@Body() dto: CreateMedicalServiceDto) {
     return this.medicalServiceService.create(dto);
@@ -24,12 +25,14 @@ export class MedicalServiceController {
 
   @Put(':id')
   @ApiOperation({ summary: 'OWNER updates a medical service' })
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('OWNER')
   async update(@Param('id') id: string, @Body() dto: UpdateMedicalServiceDto) {
     return this.medicalServiceService.update(id, dto);
   }
 
   @Delete(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @ApiOperation({ summary: 'OWNER deletes a medical service' })
   @Roles('OWNER')
   async delete(@Param('id') id: string) {
