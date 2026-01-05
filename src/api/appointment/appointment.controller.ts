@@ -10,7 +10,7 @@ import {
     HttpCode,
     HttpStatus,
     NotFoundException,
-    Query
+    Query,
 } from "@nestjs/common";
 import { AppointmentService } from "./appointment.service";
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse } from "@nestjs/swagger";
@@ -22,6 +22,7 @@ import { Roles } from "src/common/guards/roles.decorator";
 import { AppointmentStatus } from "src/shared/enums/appointment-status.enum";
 import { Appointment } from "src/shared/entities/appointment.entity";
 import { QueryAppointmentDTO } from "./dto/query-appointment.dto";
+import { QueryAppointmentDashboardDTO } from "./dto/query-appointment-dashboard.dto";
 
 @ApiTags("appointment")
 @ApiBearerAuth()
@@ -95,12 +96,30 @@ export class AppointmentController {
         return this.appointmentService.updateAppointmentStatus(appointmentId, appointmentStatus);
     }
 
-    @Put(":id/cancel")
-    @Roles("PATIENT")
+    @Get("count") // API đếm cuộc hẹn trong ngày dành cho lễ tân
+    @Roles("RECEPTIONIST")
     @UseGuards(JwtAuthGuard, RolesGuard)
-    @ApiOperation({ summary: "Patient cancel own appointment" })
-    async cancelMyAppointment(@Req() req, @Param("id") appointmentId: string) {
-        const userId = req.user.id;
-        return this.appointmentService.cancelAppointment(userId, appointmentId);
+    @ApiOperation({
+        summary: "count today's appointments for the authenticated receptionist",
+        description: "Receptionists get count appointments scheduled for today.",
+    })
+    async getCountAppointment() {
+        return this.appointmentService.getCountAppointmentToday();
+    }
+
+    @Get("dashboard") // API lấy cuộc hẹn dashboard trong ngày dành cho lễ tân
+    @Roles("RECEPTIONIST")
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    async getAppointmentDashboard(@Query() dto: QueryAppointmentDashboardDTO) {
+        return this.appointmentService.getAppointmentDashboard(dto);
+    }
+
+    @Put("dashboard/cancel/:appointmentId")// API hủy lịch hẹn dashboard trong ngày dành cho lễ tân
+    @Roles("RECEPTIONIST")
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    async cancelAppointmentDashboard(
+        @Param('appointmentId') appointmentId: string
+    ) {
+        return this.appointmentService.cancelAppointmentDashboard(appointmentId);
     }
 }

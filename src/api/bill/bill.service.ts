@@ -17,6 +17,7 @@ import { PaymentStatus } from "src/shared/enums/payment-status.enum";
 import { Payment } from "src/shared/entities/payment.entity";
 import dayjs from 'dayjs';
 import { QueryBillTodayDTO } from "./dto/query-bill-today.dto";
+import { QueryBillDashboardDTO } from "./dto/query-bill-dashboard.dto";
 
 
 @Injectable()
@@ -144,21 +145,29 @@ export class BillService {
         }
 
         // Kiểm tra giao dịch đang pending/failed trong ngày
-        const pendingOrFailedPaymentToday = await this.billRepository
+        const unpaidBillToday = await this.billRepository
             .createQueryBuilder('bill')
-            .leftJoinAndSelect('bill.payments', 'payment')
-            .leftJoinAndSelect('bill.patient', 'patient')
-            .where('patient.id = :patientId', { patientId: dto.patient_id })
-            .andWhere('payment.payment_status IN (:...statuses)', {
-                statuses: [PaymentStatus.PENDING, PaymentStatus.FAILED],
+            .where('bill.patient_id = :patientId', {
+                patientId: dto.patient_id,
             })
-            .andWhere('payment.paid_at BETWEEN :start AND :end', {
+            .andWhere('bill.created_at BETWEEN :start AND :end', {
                 start: startOfDay,
                 end: endOfDay,
             })
+            .andWhere(qb => {
+                const sub = qb.subQuery()
+                    .select('1')
+                    .from('payment', 'p')
+                    .where('p.bill_id = bill.id')
+                    .andWhere('p.payment_status = :paid')
+                    .getQuery();
+
+                return `NOT EXISTS ${sub}`;
+            })
+            .setParameter('paid', PaymentStatus.SUCCESS)
             .getOne();
 
-        if (pendingOrFailedPaymentToday) {
+        if (unpaidBillToday) {
             throw new BadRequestException(
                 "Bệnh nhân đang có giao dịch chưa thanh toán trong hôm nay"
             );
@@ -217,9 +226,51 @@ export class BillService {
         }
         // Lọc theo trạng thái thanh toán
         if (paymentStatus !== 'all') {
-            query.andWhere('payment.payment_status = :paymentStatus', {
-                paymentStatus,
-            });
+            // SUCCESS: có payment SUCCESS
+            if (paymentStatus === PaymentStatus.SUCCESS) {
+                query.andWhere(
+                    `EXISTS (
+                SELECT 1
+                FROM payment p
+                WHERE p.bill_id = bill.id
+                AND p.payment_status = :successStatus
+            )`,
+                    { successStatus: PaymentStatus.SUCCESS }
+                );
+            }
+            // PENDING: chưa có payment HOẶC payment PENDING
+            if (paymentStatus === PaymentStatus.PENDING) {
+                query.andWhere(
+                    `NOT EXISTS (
+                SELECT 1
+                FROM payment p
+                WHERE p.bill_id = bill.id
+                AND p.payment_status = :successStatus
+            )`,
+                    { successStatus: PaymentStatus.SUCCESS }
+                );
+            }
+            // FAILED: có FAILED nhưng không có SUCCESS
+            if (paymentStatus === PaymentStatus.FAILED) {
+                query.andWhere(
+                    `EXISTS (
+                SELECT 1
+                FROM payment p
+                WHERE p.bill_id = bill.id
+                AND p.payment_status = :failedStatus
+            )`
+                ).andWhere(
+                    `NOT EXISTS (
+                SELECT 1
+                FROM payment p
+                WHERE p.bill_id = bill.id
+                AND p.payment_status = :successStatus
+            )`
+                ).setParameters({
+                    failedStatus: PaymentStatus.FAILED,
+                    successStatus: PaymentStatus.SUCCESS,
+                });
+            }
         }
         // Phân trang
         query
@@ -267,4 +318,150 @@ export class BillService {
             total: bill?.total
         }
     }
+
+    //Lấy ra số lượng bill đã thanh toán, chưa thanh toán , thanh toán thất bại
+    async getCountBillToday() {
+        const startOfDay = new Date();
+        startOfDay.setHours(0, 0, 0, 0);
+        const endOfDay = new Date();
+        endOfDay.setHours(23, 59, 59, 999);
+
+        // ===== QUERY BASE: BILL TRONG NGÀY =====
+        const billQuery = this.billRepository
+            .createQueryBuilder('b')
+            .where('b.created_at BETWEEN :start AND :end', {
+                start: startOfDay,
+                end: endOfDay,
+            });
+
+        const [total, success, pending, failed] = await Promise.all([
+            billQuery.getCount(),
+
+            billQuery.clone()
+                .innerJoin('b.payments', 'p')
+                .andWhere('p.payment_status = :status', {
+                    status: PaymentStatus.SUCCESS,
+                })
+                .getCount(),
+
+            billQuery.clone()
+                .leftJoin('b.payments', 'p')
+                .andWhere('p.id IS NULL')
+                .getCount(),
+
+            billQuery.clone()
+                .innerJoin('b.payments', 'p')
+                .andWhere('p.payment_status IN (:...statuses)', {
+                    statuses: [
+                        PaymentStatus.FAILED,
+                        PaymentStatus.PENDING,
+                    ],
+                })
+                .andWhere(qb => {
+                    const subQuery = qb.subQuery()
+                        .select('1')
+                        .from(Payment, 'p2')
+                        .where('p2.bill_id = b.id')
+                        .andWhere('p2.payment_status = :success')
+                        .getQuery();
+                    return `NOT EXISTS ${subQuery}`;
+                })
+                .setParameter('success', PaymentStatus.SUCCESS)
+                .getCount(),
+        ]);
+
+        return {
+            total, success, pending, failed
+        };
+    }
+
+    // Lấy dashboard thanh toán (lâm sàng + cận lâm sàng đã SUCCESS)
+    async getPaymentReport(dto: QueryBillDashboardDTO) {
+        const { cursor, limit = 10 } = dto;
+
+        const startOfDay = new Date();
+        startOfDay.setHours(0, 0, 0, 0);
+
+        const endOfDay = new Date();
+        endOfDay.setHours(23, 59, 59, 999);
+
+        // ===== SUBQUERY: tổng tiền cận lâm sàng đã thanh toán =====
+        const paidIndicationSubQuery = this.billRepository
+            .createQueryBuilder('b')
+            .innerJoin('b.payments', 'p', 'p.payment_status = :success', {
+                success: 'SUCCESS',
+            })
+            .select('b.medical_ticket_id', 'medical_ticket_id')
+            .addSelect('SUM(b.total)', 'paraclinical_fee')
+            .where('b.indication_ticket_id IS NOT NULL')
+            .groupBy('b.medical_ticket_id');
+
+        const query = this.medicalTicketRepository
+            .createQueryBuilder('mt')
+            .innerJoin('mt.visit_id', 'visit')
+            .innerJoin('visit.patient', 'patient')
+
+            // bill + payment lâm sàng
+            .innerJoin('bill', 'bill_mt', 'bill_mt.medical_ticket_id = mt.id')
+            .innerJoin(
+                'bill_mt.payments',
+                'pay_mt',
+                `
+            pay_mt.payment_status = :success
+            AND pay_mt.paid_at BETWEEN :startOfDay AND :endOfDay
+            `,
+                { success: 'SUCCESS', startOfDay, endOfDay }
+            )
+
+            // join kết quả subquery
+            .leftJoin(
+                '(' + paidIndicationSubQuery.getQuery() + ')',
+                'ind_paid',
+                'ind_paid.medical_ticket_id = mt.id'
+            )
+            .setParameters(paidIndicationSubQuery.getParameters());
+
+        if (cursor) {
+            query.andWhere('pay_mt.paid_at < :cursor', {
+                cursor: new Date(cursor),
+            });
+        }
+
+        query
+            .select([
+                'mt.id AS medical_ticket_id',
+                'patient.patient_full_name AS patient_name',
+                'pay_mt.paid_at AS paid_at',
+                `
+            (
+                mt.clinical_fee + COALESCE(ind_paid.paraclinical_fee, 0)
+            ) AS total_amount
+            `,
+            ])
+            .orderBy('pay_mt.paid_at', 'DESC')
+            .take(limit + 1);
+
+        const rows = await query.getRawMany();
+
+        const hasMore = rows.length > limit;
+        const items = hasMore ? rows.slice(0, limit) : rows;
+
+        const nextCursor =
+            items.length > 0 ? items[items.length - 1].paid_at : null;
+
+        return {
+            data: items.map(item => ({
+                medicalTicketId: item.medical_ticket_id,
+                patientName: item.patient_name,
+                totalAmount: Number(item.total_amount),
+                paidDate: item.paid_at,
+            })),
+            meta: {
+                limit,
+                hasMore,
+                nextCursor,
+            },
+        };
+    }
+
 }
