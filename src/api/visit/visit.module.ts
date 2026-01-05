@@ -8,10 +8,11 @@ import { Staff } from '../../shared/entities/staff.entity';
 import { Appointment } from '../../shared/entities/appointment.entity';
 import { MedicalRecord } from '../../shared/entities/medical-record.entity';
 import { WorkScheduleDetail } from 'src/shared/entities/work-schedule-detail.entity';
+import { User } from '../../shared/entities/user.entity';
 
 @Module({
     imports: [
-        TypeOrmModule.forFeature([Visit, Patient, Staff, Appointment, MedicalRecord, WorkScheduleDetail]),
+        TypeOrmModule.forFeature([Visit, Patient, Staff, Appointment, MedicalRecord, WorkScheduleDetail, User]),
     ],
     providers: [VisitService],
     controllers: [VisitController],

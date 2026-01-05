@@ -20,14 +20,14 @@ export class VisitController {
 
     @Get('queue')
     @HttpCode(HttpStatus.OK)
-    @ApiOperation({ summary: 'Lấy ra danh sách thăm khám thực tế trong ngày (ưu tiên bệnh nhân đã đặt lịch)' })
+    @ApiOperation({ summary: 'Lấy ra danh sách thăm khám thực tế trong ngày (ưu tiên bệnh nhân đã đặt lịch). Bác sĩ chỉ xem được visit của mình, lễ tân xem được tất cả.' })
     @ApiResponse({
         status: 200,
         description: 'Danh sách visit trong ngày',
         type: [Visit]
     })
-    async getTodayQueue(@Query() dto: QueryVisitDTO) {
-        return this.visitService.getTodayQueue(dto);
+    async getTodayQueue(@CurrentUser() user: any, @Query() dto: QueryVisitDTO) {
+        return this.visitService.getTodayQueue(user.id, dto);
     }
 
     @Get(':id')
@@ -38,7 +38,7 @@ export class VisitController {
         description: 'Chi tiết visit',
         type: Visit
     })
-    @Roles(UserRole.RECEPTIONIST)
+    @Roles(UserRole.RECEPTIONIST, UserRole.DOCTOR)
     async getVisitDetail(@Param('id') visitId: string, @CurrentUser() user: any) {
         return this.visitService.findOneWithTicket(visitId, user);
     }
