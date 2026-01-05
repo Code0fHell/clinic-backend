@@ -3,6 +3,7 @@ import { PrescriptionService } from './prescription.service';
 import { CreatePrescriptionDto } from './dto/create-prescription.dto';
 import { UpdatePrescriptionDto } from './dto/update-prescription.dto';
 import { ApprovePrescriptionDto } from './dto/approve-prescription.dto';
+import { AdjustPrescriptionDto } from './dto/adjust-prescription.dto';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { RolesGuard } from 'src/common/guards/roles.guard';
 import { AuthGuard } from '@nestjs/passport/dist/auth.guard';
@@ -96,5 +97,15 @@ export class PrescriptionController {
   async getRecentActivity(@Req() req) {
     const userId = req.user.id;
     return this.prescriptionService.getRecentActivity(userId);
+  }
+
+  @Put(':id/adjust')
+  @ApiOperation({ summary: 'Adjust prescription by pharmacist' })
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.PHARMACIST, UserRole.OWNER)
+  async adjust(@Param('id') id: string, @Body() dto: AdjustPrescriptionDto, @Req() req) {
+    const userId = req.user.id;
+    return this.prescriptionService.adjustPrescription(id, userId, dto);
   }
 }

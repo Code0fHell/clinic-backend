@@ -7,6 +7,7 @@ import { Roles } from "../../common/guards/roles.decorator";
 import { CreateBillDto } from "./dto/create-bill.dto";
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import { QueryBillTodayDTO } from "./dto/query-bill-today.dto";
+import { QueryPrescriptionBillDto } from "./dto/query-prescription-bill.dto";
 import { QueryBillDashboardDTO } from "./dto/query-bill-dashboard.dto";
 
 @ApiTags("bill")
@@ -52,6 +53,14 @@ export class BillController {
         return this.billService.getDetailBill(billId);
     }
 
+    @Get("/prescription/list")
+    @ApiOperation({
+        summary: "Lấy danh sách hóa đơn thuốc với filters (cho dược sĩ)",
+    })
+    @Roles("PHARMACIST", "OWNER")
+    async getPrescriptionBills(@Query() dto: QueryPrescriptionBillDto) {
+        return this.billService.getPrescriptionBills(dto);
+    }
     @Get("dashboard/count")
     @ApiOperation({
         summary: "Đếm Bill",

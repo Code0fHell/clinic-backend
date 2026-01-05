@@ -18,6 +18,12 @@ export class Medicine {
   @Column({ type: 'decimal', precision: 12, scale: 2 })
   price: number;
 
+  @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
+  import_price: number;
+
+  @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
+  sale_price: number;
+
   @Column({ nullable: true })
   category: string;
 

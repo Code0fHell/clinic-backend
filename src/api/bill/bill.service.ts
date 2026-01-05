@@ -15,8 +15,9 @@ import { Repository } from "typeorm";
 import { CreateBillDto } from "./dto/create-bill.dto";
 import { PaymentStatus } from "src/shared/enums/payment-status.enum";
 import { Payment } from "src/shared/entities/payment.entity";
-import dayjs from 'dayjs';
+import dayjs from "dayjs";
 import { QueryBillTodayDTO } from "./dto/query-bill-today.dto";
+import { QueryPrescriptionBillDto } from "./dto/query-prescription-bill.dto";
 import { QueryBillDashboardDTO } from "./dto/query-bill-dashboard.dto";
 
 
@@ -37,12 +38,12 @@ export class BillService {
         private readonly indicationTicketRepository: Repository<IndicationTicket>,
         @InjectRepository(Prescription)
         private readonly prescriptionRepository: Repository<Prescription>
-    ) { }
+    ) {}
 
     // Hàm so sánh ngày
     private isSameDay(date: Date): boolean {
-        const today = dayjs().format('YYYY-MM-DD');
-        const target = dayjs(date).format('YYYY-MM-DD');
+        const today = dayjs().format("YYYY-MM-DD");
+        const target = dayjs(date).format("YYYY-MM-DD");
         return today === target;
     }
 
@@ -53,7 +54,7 @@ export class BillService {
         });
         if (!patient) throw new NotFoundException("Patient not found");
 
-        const today = dayjs().format('YYYY-MM-DD');
+        const today = dayjs().format("YYYY-MM-DD");
         const startOfDay = `${today} 00:00:00`;
         const endOfDay = `${today} 23:59:59`;
 
@@ -84,9 +85,7 @@ export class BillService {
             total = Number(medicalTicket.clinical_fee || 0);
 
             if (!total) {
-                throw new BadRequestException(
-                    "Chưa có tiền khám lâm sàng"
-                );
+                throw new BadRequestException("Chưa có tiền khám lâm sàng");
             }
         }
         // 2. BILL DỊCH VỤ
@@ -139,8 +138,7 @@ export class BillService {
                     "Prescription does not contain any fee information"
                 );
             }
-        }
-        else {
+        } else {
             throw new BadRequestException("Không thể tạo hóa đơn");
         }
 
@@ -187,19 +185,29 @@ export class BillService {
         return this.billRepository.save(bill);
     }
 
-
     // Lấy tất cả Bill theo ngày
     async getAllBillToday(user: any, dto: QueryBillTodayDTO) {
-        const { billType = 'all', paymentMethod = 'all', paymentStatus = 'all', keyword, date, page = 1, limit = 10 } = dto;
+        const {
+            billType = "all",
+            paymentMethod = "all",
+            paymentStatus = "all",
+            keyword,
+            date,
+            page = 1,
+            limit = 10,
+        } = dto;
         const selectedDate = date ? dayjs(date) : dayjs();
-        const startOfDay = selectedDate.startOf('day').toDate();
-        const endOfDay = selectedDate.endOf('day').toDate();
+        const startOfDay = selectedDate.startOf("day").toDate();
+        const endOfDay = selectedDate.endOf("day").toDate();
 
         const query = this.billRepository
-            .createQueryBuilder('bill')
-            .leftJoinAndSelect('bill.payments', 'payment')       // lấy payment nếu có
-            .leftJoinAndSelect('bill.patient', 'patient')       // lấy patient
-            .where('bill.created_at BETWEEN :startOfDay AND :endOfDay', { startOfDay, endOfDay })
+            .createQueryBuilder("bill")
+            .leftJoinAndSelect("bill.payments", "payment") // lấy payment nếu có
+            .leftJoinAndSelect("bill.patient", "patient") // lấy patient
+            .where("bill.created_at BETWEEN :startOfDay AND :endOfDay", {
+                startOfDay,
+                endOfDay,
+            });
 
         // Tìm theo tên hoặc SĐT
         if (keyword) {
@@ -211,13 +219,13 @@ export class BillService {
             );
         }
         // Lọc theo loại hóa đơn
-        if (billType !== 'all') {
-            query.andWhere('bill.bill_type = :billType', { billType });
+        if (billType !== "all") {
+            query.andWhere("bill.bill_type = :billType", { billType });
         }
         // Lọc theo hình thức thanh toán
-        if (paymentMethod !== 'all') {
+        if (paymentMethod !== "all") {
             query.andWhere(
-                'payment.payment_method = :paymentMethod AND payment.payment_status = :successStatus',
+                "payment.payment_method = :paymentMethod AND payment.payment_status = :successStatus",
                 {
                     paymentMethod,
                     successStatus: PaymentStatus.SUCCESS,
@@ -273,18 +281,19 @@ export class BillService {
             }
         }
         // Phân trang
-        query
-            .skip((page - 1) * limit)
-            .take(limit);
-        query.orderBy('bill.created_at', 'DESC');
+        query.skip((page - 1) * limit).take(limit);
+        query.orderBy("bill.created_at", "DESC");
 
         const [bills, total] = await query.getManyAndCount();
 
         return {
-            data: bills.map(bill => {
+            data: bills.map((bill) => {
                 // Prefer a successful payment when choosing displayed payment method
-                const successPayment = bill.payments?.find(p => p.payment_status === PaymentStatus.SUCCESS);
-                const chosenPayment = successPayment || bill.payments?.[0] || null;
+                const successPayment = bill.payments?.find(
+                    (p) => p.payment_status === PaymentStatus.SUCCESS
+                );
+                const chosenPayment =
+                    successPayment || bill.payments?.[0] || null;
 
                 return {
                     id: bill.id,
@@ -295,28 +304,137 @@ export class BillService {
                     patient_name: bill.patient?.patient_full_name || null,
                     patient_phone: bill.patient?.patient_phone || null,
                     payment_method: chosenPayment?.payment_method || null,
-                    payment_status: bill.payments?.map(p => p.payment_status) || [],
+                    payment_status:
+                        bill.payments?.map((p) => p.payment_status) || [],
                 };
             }),
             pagination: {
                 total,
                 page,
                 limit,
-                totalPages: Math.ceil(total / limit)
+                totalPages: Math.ceil(total / limit),
             },
-        }
+        };
     }
 
     // Lấy ra chi tiết thông tin bill
     async getDetailBill(billId: string) {
         const bill = await this.billRepository.findOne({
-            where: { id: billId }
+            where: { id: billId },
         });
 
         return {
             id: billId,
-            total: bill?.total
+            total: bill?.total,
+        };
+    }
+
+    // Lấy bill theo prescription ID
+    async getBillByPrescription(prescriptionId: string) {
+        const bill = await this.billRepository.findOne({
+            where: {
+                prescription: { id: prescriptionId },
+                bill_type: BillType.MEDICINE,
+            },
+            relations: ["payments", "patient", "prescription"],
+        });
+        return bill;
+    }
+
+    // Lấy danh sách hóa đơn thuốc với filters (cho dược sĩ)
+    async getPrescriptionBills(dto: QueryPrescriptionBillDto) {
+        const {
+            keyword,
+            startDate,
+            endDate,
+            paymentStatus,
+            page = 1,
+            limit = 10,
+        } = dto;
+
+        const query = this.billRepository
+            .createQueryBuilder("bill")
+            .leftJoinAndSelect("bill.payments", "payment")
+            .leftJoinAndSelect("bill.patient", "patient")
+            .leftJoinAndSelect("patient.user", "user")
+            .leftJoinAndSelect("bill.prescription", "prescription")
+            .leftJoinAndSelect("prescription.approved_by", "approved_by")
+            .leftJoinAndSelect("approved_by.user", "approved_by_user")
+            .where("bill.bill_type = :billType", {
+                billType: BillType.MEDICINE,
+            });
+
+        // Filter by keyword (patient name or phone)
+        if (keyword) {
+            query.andWhere(
+                `(user.full_name LIKE :keyword 
+                OR patient.patient_phone LIKE :keyword
+                OR patient.fatherORmother_phone LIKE :keyword)`,
+                { keyword: `%${keyword}%` }
+            );
         }
+
+        // Filter by date range
+        if (startDate) {
+            const start = dayjs(startDate).startOf("day").toDate();
+            query.andWhere("bill.created_at >= :startDate", {
+                startDate: start,
+            });
+        }
+        if (endDate) {
+            const end = dayjs(endDate).endOf("day").toDate();
+            query.andWhere("bill.created_at <= :endDate", { endDate: end });
+        }
+
+        // Filter by payment status
+        if (paymentStatus) {
+            query.andWhere("payment.payment_status = :paymentStatus", {
+                paymentStatus,
+            });
+        }
+
+        // Pagination
+        query
+            .skip((page - 1) * limit)
+            .take(limit)
+            .orderBy("bill.created_at", "DESC");
+
+        const [bills, total] = await query.getManyAndCount();
+
+        return {
+            data: bills.map((bill) => {
+                const successPayment = bill.payments?.find(
+                    (p) => p.payment_status === PaymentStatus.SUCCESS
+                );
+                const chosenPayment =
+                    successPayment || bill.payments?.[0] || null;
+
+                return {
+                    id: bill.id,
+                    total: bill.total,
+                    created_at: bill.created_at,
+                    patient_name:
+                        bill.patient?.user?.full_name ||
+                        bill.patient?.patient_full_name ||
+                        null,
+                    patient_phone: bill.patient?.patient_phone || null,
+                    prescription_id: bill.prescription?.id || null,
+                    prescription_status: bill.prescription?.status || null,
+                    approved_by:
+                        bill.prescription?.approved_by?.user?.full_name || null,
+                    approved_at: bill.prescription?.approved_at || null,
+                    payment_method: chosenPayment?.payment_method || null,
+                    payment_status: chosenPayment?.payment_status || null,
+                    payment_id: chosenPayment?.id || null,
+                };
+            }),
+            pagination: {
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit),
+            },
+        };
     }
 
     //Lấy ra số lượng bill đã thanh toán, chưa thanh toán , thanh toán thất bại
