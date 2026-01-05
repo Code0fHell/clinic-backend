@@ -2,10 +2,10 @@ import { ApiProperty } from '@nestjs/swagger';
 import { IsString, IsDateString, IsEnum, IsOptional } from 'class-validator';
 
 export enum Timeframe {
-  DAY = 'day',
-  WEEK = 'week',
-  MONTH = 'month',
-  QUARTER = 'quarter',
+  DAY = 'DAY',
+  WEEK = 'WEEK',
+  MONTH = 'MONTH',
+  QUARTER = 'QUARTER',
 }
 
 export class DashboardRevenueQueryDto {

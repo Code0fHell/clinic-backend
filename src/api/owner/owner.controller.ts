@@ -1,15 +1,10 @@
 import {
-    Body,
     Controller,
-    HttpCode,
-    HttpStatus,
     Param,
-    Patch,
-    Post,
     UseGuards,
     Get,
-    Put,
     Query,
+    Res,
 } from '@nestjs/common';
 import {
     ApiOperation,
@@ -24,6 +19,8 @@ import { Roles } from '../../common/guards/roles.decorator';
 import { UserRole } from '../../shared/enums/user-role.enum';
 import { OwnerService } from './owner.service';
 import { DashboardRevenueQueryDto, Timeframe } from './dto/dashboard-revenue-query.dto';
+import { QueryWeeklyScheduleOwnerDto } from './dto/query-owner-schedule.dto';
+import type { Response } from 'express';
 
 @ApiTags('owner')
 @ApiBearerAuth()
@@ -98,4 +95,36 @@ export class OwnerController {
             data,
         };
     }
+
+    @Get('weekly')
+    @ApiOperation({ summary: 'Get weekly schedule overview for all doctor, receptionist, pharamist' })
+    @Roles('OWNER')
+    @ApiQuery({ name: 'start_date', required: true, example: '2026-01-05' })
+    async getWeeklySchedule(@Query() dto: QueryWeeklyScheduleOwnerDto) {
+        return this.ownerService.getWeeklySchedule(dto);
+    }
+
+    @Get('work-schedules/:id')
+    @ApiOperation({ summary: 'Get daily schedule overview for doctor' })
+    @Roles('OWNER')
+    async getDoctorDailySchedule(@Param('id') id: string) {
+        return this.ownerService.getDoctorDailySchedule(id);
+    }
+
+    @Get('export/revenue-detail')
+    @Roles('OWNER')
+    exportRevenueDetail(
+        @Query('start') startDate: string,
+        @Query('end') endDate: string,
+        @Query('timeframe') timeframe: Timeframe,
+        @Res() res: Response,
+    ) {
+        return this.ownerService.exportRevenueDetailToExcel(
+            startDate,
+            endDate,
+            timeframe,
+            res,
+        );
+    }
+
 }
