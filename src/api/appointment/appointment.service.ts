@@ -20,6 +20,7 @@ import { UserRole } from "src/shared/enums/user-role.enum";
 import { NotificationService } from "../notification/notification.service";
 import dayjs from "dayjs";
 import { QueryAppointmentDTO } from "./dto/query-appointment.dto";
+import { QueryAppointmentDashboardDTO } from "./dto/query-appointment-dashboard.dto";
 
 @Injectable()
 export class AppointmentService {
@@ -266,7 +267,7 @@ export class AppointmentService {
         const userInfo = await this.getUserWithRole(userId);
         const { role, staffId } = userInfo;
 
-        const {date,keyword,visitFilter = 'all',page = 1,limit = 10} = dto;
+        const { date, keyword, visitFilter = 'all', page = 1, limit = 10 } = dto;
 
         const selectedDate = date ? dayjs(date) : dayjs();
         const startOfDay = selectedDate.startOf('day').toDate();
@@ -513,5 +514,204 @@ export class AppointmentService {
         }
 
         return "";
+    }
+
+    // Lấy ra số lượng lịch hẹn, đã hoàn thành, đang thực hiện và đã hủy
+    async getCountAppointmentToday() {
+        const startOfDay = new Date();
+        startOfDay.setHours(0, 0, 0, 0);
+        const endOfDay = new Date();
+        endOfDay.setHours(23, 59, 59, 999);
+
+        const query = this.appointmentRepository
+            .createQueryBuilder('a')
+            .where('a.scheduled_date BETWEEN :start AND :end', {
+                start: startOfDay,
+                end: endOfDay,
+            });
+
+        const [
+            total,
+            // pending,
+            check_in,
+            doing,
+            completed,
+            cancelled,
+        ] = await Promise.all([
+            query.getCount(),
+
+            // query.clone()
+            //     .andWhere('a.status = :status', {
+            //         status: AppointmentStatus.PENDING,
+            //     })
+            //     .getCount(),
+
+            query.clone()
+                .andWhere('a.status = :status', {
+                    status: AppointmentStatus.CHECKED_IN,
+                })
+                .getCount(),
+
+            query.clone()
+                .andWhere('a.status = :status', {
+                    status: AppointmentStatus.DOING,
+                })
+                .getCount(),
+
+            query.clone()
+                .andWhere('a.status = :status', {
+                    status: AppointmentStatus.COMPLETED,
+                })
+                .getCount(),
+
+            query.clone()
+                .andWhere('a.status = :status', {
+                    status: AppointmentStatus.CANCELLED,
+                })
+                .getCount(),
+        ]);
+
+        return {
+            total,
+            // pending,
+            check_in,
+            doing,
+            completed,
+            cancelled,
+        };
+    }
+
+    //Lấy lịch hẹn dành cho dashboard của reception
+    async getAppointmentDashboard(dto: QueryAppointmentDashboardDTO) {
+        const { keyword, appointmentFilter = 'all', cursor, limit = 10 } = dto;
+        const startOfDay = new Date();
+        startOfDay.setHours(0, 0, 0, 0);
+        const endOfDay = new Date();
+        endOfDay.setHours(23, 59, 59, 999);
+
+        const query = this.appointmentRepository
+            .createQueryBuilder('a')
+            // join
+            .leftJoin('a.patient', 'p')
+            .leftJoin('p.user', 'pu')
+            .leftJoin('a.doctor', 'd')
+            .leftJoin('d.user', 'du')
+            .leftJoin('a.schedule_detail', 'sd')
+            // Lấy dữ liệu cần thiết
+            .select([
+                // appointment
+                'a.id',
+                'a.scheduled_date',
+                'a.reason',
+                'a.session',
+                'a.status',
+                // patient
+                'p.id',
+                'pu.full_name',
+                'pu.gender',
+                'pu.phone',
+                'pu.address',
+                // doctor
+                'd.id',
+                'du.full_name',
+                'd.is_available',
+                // visit status
+                'sd.id',
+            ])
+            .where('a.scheduled_date BETWEEN :start AND :end', {
+                start: startOfDay,
+                end: endOfDay,
+            });
+
+        // filter theo trang thái
+        if (appointmentFilter !== 'all') {
+            query.andWhere('a.status = :status', {
+                status: appointmentFilter,
+            });
+        }
+
+        // Tìm kiếm theo tên / SĐT
+        if (keyword) {
+            query.andWhere(
+                '(pu.full_name LIKE :keyword OR pu.phone LIKE :keyword)',
+                { keyword: `%${keyword}%` },
+            );
+        }
+
+        if (cursor) {
+            query.andWhere('a.scheduled_date > :cursor', {
+                cursor: new Date(cursor),
+            });
+        }
+        // Sắp xếp + phân trang
+        query.orderBy('a.scheduled_date', 'ASC')
+            .addOrderBy('a.id', 'ASC')
+            .take(limit + 1); // +1 để check còn data không
+
+        const rows = await query.getMany();
+
+        const hasMore = rows.length > limit;
+        const items = hasMore ? rows.slice(0, limit) : rows;
+
+        const nextCursor =
+            items.length > 0
+                ? items[items.length - 1].scheduled_date
+                : null;
+
+        return {
+            data: items.map((item) => ({
+                id: item.id,
+                patient: {
+                    id: item.patient?.id,
+                    name: item.patient?.user?.full_name,
+                    gender: item.patient?.user?.gender,
+                    phone: item.patient?.user?.phone,
+                    address: item.patient?.user?.address,
+                },
+                doctor: {
+                    id: item.doctor?.id,
+                    name: item.doctor?.user?.full_name,
+                    is_available: item.doctor?.is_available,
+                },
+                scheduled_date: item.scheduled_date,
+                reason: item.reason,
+                session: item.session,
+                status: item.status,
+                visitStatus: item.schedule_detail ? 'added' : 'not_added',
+            })),
+            meta: {
+                limit,
+                hasMore,
+                nextCursor,
+            },
+        };
+    }
+
+    //Hủy lịch hẹn của bệnh nhân dành cho receptionist
+    async cancelAppointmentDashboard(appointmentId: string) {
+        const appointment = await this.appointmentRepository.findOne({
+            where: { id: appointmentId },
+        });
+
+        if (!appointment) {
+            throw new NotFoundException('Không tìm thấy lịch hẹn');
+        }
+
+        if (appointment.status === AppointmentStatus.CANCELLED) {
+            throw new BadRequestException('Lịch hẹn đã bị hủy trước đó');
+        }
+
+        if (appointment.status === AppointmentStatus.COMPLETED) {
+            throw new BadRequestException('Không thể hủy lịch hẹn đã hoàn thành');
+        }
+
+        appointment.status = AppointmentStatus.CANCELLED;
+
+        await this.appointmentRepository.save(appointment);
+
+        return {
+            message: 'Hủy lịch hẹn thành công',
+            status: appointment.status,
+        };
     }
 }
