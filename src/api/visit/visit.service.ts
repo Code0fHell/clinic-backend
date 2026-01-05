@@ -10,6 +10,8 @@ import { MedicalRecord } from '../../shared/entities/medical-record.entity';
 import { WorkScheduleDetail } from 'src/shared/entities/work-schedule-detail.entity';
 import { AppointmentStatus } from 'src/shared/enums/appointment-status.enum';
 import { VisitStatus } from 'src/shared/enums/visit-status.enum';
+import { User } from '../../shared/entities/user.entity';
+import { UserRole } from '../../shared/enums/user-role.enum';
 import dayjs from 'dayjs';
 import { QueryVisitDTO } from './dto/query-visit.dto';
 
@@ -33,6 +35,9 @@ export class VisitService {
 
         @InjectRepository(WorkScheduleDetail)
         private readonly workScheduleDetailRepository: Repository<WorkScheduleDetail>,
+
+        @InjectRepository(User)
+        private readonly userRepository: Repository<User>,
     ) { }
 
     async create(dto: CreateVisitDto): Promise<Visit> {
@@ -149,7 +154,24 @@ export class VisitService {
         return this.visitRepository.save(visit);
     }
 
-    async getTodayQueue(dto: QueryVisitDTO): Promise<{
+    async getUserWithRole(userId: string) {
+        const user = await this.userRepository.findOne({
+            where: { id: userId },
+            relations: ["staff"],
+        });
+
+        if (!user) {
+            throw new NotFoundException("User not found");
+        }
+
+        return {
+            user,
+            role: user.user_role,
+            staffId: user.staff?.id,
+        };
+    }
+
+    async getTodayQueue(userId: string, dto: QueryVisitDTO): Promise<{
         data: any[];
         pagination: {
             total: number;
@@ -163,16 +185,34 @@ export class VisitService {
         const startOfDay = selectedDate.startOf('day').toDate();
         const endOfDay = selectedDate.endOf('day').toDate();
 
+        // Lấy thông tin user và role
+        const userInfo = await this.getUserWithRole(userId);
+        const { role, staffId } = userInfo;
+
         const query = this.visitRepository
             .createQueryBuilder('visit')
             .leftJoinAndSelect('visit.patient', 'patient')
             .leftJoinAndSelect('visit.doctor', 'doctor')
             .leftJoinAndSelect('doctor.user', 'user')
             .leftJoinAndSelect('visit.appointment', 'appointment')
+            .leftJoinAndSelect('visit.medicalTickets', 'medicalTickets')
             .where('visit.checked_in_at BETWEEN :start AND :end', {
                 start: startOfDay,
                 end: endOfDay,
             });
+
+        // Filter theo doctor nếu user là DOCTOR
+        if (role === UserRole.DOCTOR) {
+            if (!staffId) {
+                throw new NotFoundException(
+                    'This user is a doctor but does not have staff profile',
+                );
+            }
+            query.andWhere('visit.doctor_id = :doctorId', {
+                doctorId: staffId,
+            });
+        }
+        // RECEPTIONIST và các role khác xem được tất cả visit
 
         // Filter trạng thái
         if (visitFilter !== 'all') {
@@ -212,6 +252,7 @@ export class VisitService {
         // lọc bỏ field thừa
         const data = rows.map((item) => ({
             id: item.id,
+            medicalTickets: item.medicalTickets,
             patient: {
                 id: item.patient?.id,
                 patient_full_name: item.patient?.patient_full_name,
@@ -224,9 +265,21 @@ export class VisitService {
                 ? {
                     id: item.doctor.id,
                     name: item.doctor.user?.full_name,
+                    user: item.doctor.user ? {
+                        full_name: item.doctor.user.full_name,
+                    } : null,
+                }
+                : null,
+            appointment: item.appointment
+                ? {
+                    id: item.appointment.id,
+                    scheduled_date: item.appointment.scheduled_date,
+                    reason: item.appointment.reason,
+                    status: item.appointment.status,
                 }
                 : null,
             visit_status: item.visit_status,
+            visit_type: item.visit_type,
             reason: item.appointment?.reason,
             queue_number: item.queue_number,
             checked_in_at: item.checked_in_at,
