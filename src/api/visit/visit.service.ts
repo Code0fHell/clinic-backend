@@ -59,11 +59,11 @@ export class VisitService {
             // CHECK NGÀY KHÁM THỰC TẾ
             const scheduledDate = dayjs(appointment.scheduled_date);
 
-            // if (!scheduledDate.isSame(dayjs(), 'day')) {
-            //     throw new BadRequestException(
-            //         'Chỉ được tạo thăm khám đúng ngày đã đặt'
-            //     );
-            // }
+            if (!scheduledDate.isSame(dayjs(), 'day')) {
+                throw new BadRequestException(
+                    'Chỉ được tạo thăm khám đúng ngày đã đặt'
+                );
+            }
 
             // Ưu tiên dùng doctor_id từ DTO (bác sĩ thay thế khi gốc nghỉ)
             if (dto.doctor_id) {
