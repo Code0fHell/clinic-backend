@@ -31,14 +31,8 @@ export class Patient {
   @Column({ nullable: true })
   fatherORmother_name: string;
 
-  // @Column({ nullable: true })
-  // mother_name: string;
-
   @Column({ nullable: true })
   fatherORmother_phone: string;
-
-  // @Column({ nullable: true })
-  // mother_phone: string;
 
   @Column({ type: 'float', nullable: true })
   height: number;

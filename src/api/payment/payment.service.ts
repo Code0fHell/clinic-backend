@@ -39,6 +39,17 @@ export class PaymentService {
     if (!bill) throw new NotFoundException('Bill not found');
     if (!bill.patient) throw new NotFoundException('Patient not found');
 
+    const todayCheck = new Date();
+    const billDate = new Date(bill.created_at);
+    const isSameDay =
+      todayCheck.getFullYear() === billDate.getFullYear() &&
+      todayCheck.getMonth() === billDate.getMonth() &&
+      todayCheck.getDate() === billDate.getDate();
+
+    if (!isSameDay) {
+      throw new BadRequestException('Chỉ được phép tạo QR trong ngày hôm nay');
+    }
+
     const payment = this.paymentRepository.create({
       bill,
       amount: dto.amount,
@@ -143,6 +154,7 @@ export class PaymentService {
 
     const body = verify.body;
     const orderCode = body.data.orderCode.toString();
+    const paidAmount = Number(body.data.amount); // SỐ TIỀN THỰC TRẢ
 
     const payment = await this.paymentRepository.findOne({
       where: { transaction_id: orderCode }
@@ -156,6 +168,22 @@ export class PaymentService {
       return { success: true, message: 'Already processed' };
     }
 
+    const expectedAmount = Number(payment.amount);
+
+    // CHECK THIẾU / THỪA TIỀN
+    if (paidAmount !== expectedAmount) {
+      payment.payment_status = PaymentStatus.FAILED;
+      payment.paid_at = new Date();
+
+      await this.paymentRepository.save(payment);
+
+      return {
+        success: false,
+        message: `Số tiền không khớp. Yêu cầu: ${expectedAmount}, nhận được: ${paidAmount}`,
+      };
+    }
+
+    // THANH TOÁN ĐÚNG
     payment.payment_status = PaymentStatus.SUCCESS;
     payment.paid_at = new Date();
     await this.paymentRepository.save(payment);
@@ -168,10 +196,21 @@ export class PaymentService {
       where: { id: dto.bill_id },
       relations: ["patient", "patient.user"],
     });
-    if (!bill) throw new NotFoundException("Bill not found");
+    if (!bill) throw new NotFoundException("Không tìm thấy hóa đơn");
 
     const patient = bill.patient;
-    if (!patient) throw new NotFoundException("Patient not found");
+    if (!patient) throw new NotFoundException("Không tìm thấy bệnh nhân");
+
+    const todayCheck = new Date();
+    const billDate = new Date(bill.created_at);
+    const isSameDay =
+      todayCheck.getFullYear() === billDate.getFullYear() &&
+      todayCheck.getMonth() === billDate.getMonth() &&
+      todayCheck.getDate() === billDate.getDate();
+
+    if (!isSameDay) {
+      throw new BadRequestException('Chỉ được phép thanh toán trong ngày hôm nay');
+    }
 
     // Nếu bệnh nhân có tài khoản thì dùng user, nếu không thì lưu trực tiếp patient
     const payment = this.paymentRepository.create({

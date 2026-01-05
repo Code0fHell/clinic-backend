@@ -18,8 +18,12 @@ import { User } from "src/shared/entities/user.entity";
 import { GuestBookAppointmentDto } from "./dto/guest-book-appointment.dto";
 import { UserRole } from "src/shared/enums/user-role.enum";
 import { NotificationService } from "../notification/notification.service";
+import { EmailService } from "../email/email.service";
+import { generateSecurePassword } from "src/common/utils/password-generator.util";
+import * as bcrypt from "bcrypt";
 import dayjs from "dayjs";
 import { QueryAppointmentDTO } from "./dto/query-appointment.dto";
+import { QueryAppointmentDashboardDTO } from "./dto/query-appointment-dashboard.dto";
 
 @Injectable()
 export class AppointmentService {
@@ -35,8 +39,9 @@ export class AppointmentService {
         @InjectRepository(User)
         private readonly userRepository: Repository<User>,
         @Inject(forwardRef(() => NotificationService))
-        private readonly notificationService: NotificationService
-    ) { }
+        private readonly notificationService: NotificationService,
+        private readonly emailService: EmailService
+    ) {}
 
     async getUserWithStaff(userId: string) {
         const user = await this.userRepository.findOne({
@@ -115,7 +120,10 @@ export class AppointmentService {
         const slotDate = dayjs(slot.schedule.work_date).format("YYYY-MM-DD");
         const selectedDate = dayjs(dto.scheduled_date).format("YYYY-MM-DD");
 
-        if (slot.schedule.staff.id !== dto.doctor_id || slotDate !== selectedDate) {
+        if (
+            slot.schedule.staff.id !== dto.doctor_id ||
+            slotDate !== selectedDate
+        ) {
             throw new BadRequestException(
                 "Bác sĩ không làm việc trong ngày này, vui lòng chọn ngày khác."
             );
@@ -184,7 +192,10 @@ export class AppointmentService {
         const slotDate = dayjs(slot.schedule.work_date).format("YYYY-MM-DD");
         const selectedDate = dayjs(dto.scheduled_date).format("YYYY-MM-DD");
 
-        if (slot.schedule.staff.id !== dto.doctor_id || slotDate !== selectedDate) {
+        if (
+            slot.schedule.staff.id !== dto.doctor_id ||
+            slotDate !== selectedDate
+        ) {
             throw new BadRequestException(
                 "Bác sĩ không làm việc trong ngày này, vui lòng chọn ngày khác."
             );
@@ -196,15 +207,32 @@ export class AppointmentService {
             );
         }
 
-        // Create User (optional, or skip if you want only Patient)
-        const user = this.userRepository.create({
-            full_name: dto.full_name,
-            email: dto.email,
-            username: dto.email.split("@")[0],
-            password: "guest",
-            user_role: UserRole.PATIENT,
+        // Check if user with this email already exists
+        const existingUser = await this.userRepository.findOne({
+            where: { email: dto.email },
         });
-        await this.userRepository.save(user);
+
+        let user;
+        let generatedPassword: string | null = null;
+
+        if (existingUser) {
+            // User already exists, use existing account
+            user = existingUser;
+        } else {
+            // Generate secure password
+            generatedPassword = generateSecurePassword();
+            const hashedPassword = await bcrypt.hash(generatedPassword, 10);
+
+            // Create new User
+            user = this.userRepository.create({
+                full_name: dto.full_name,
+                email: dto.email,
+                username: dto.email.split("@")[0],
+                password: hashedPassword,
+                user_role: UserRole.PATIENT,
+            });
+            await this.userRepository.save(user);
+        }
 
         // Create Patient
         const patient = this.patientRepository.create({
@@ -250,7 +278,29 @@ export class AppointmentService {
             }
         }
 
-        return { message: "Appointment booked", appointmentId: appointment.id };
+        // Send email with account credentials (only for new users)
+        if (generatedPassword) {
+            try {
+                await this.emailService.sendGuestAccountEmail(
+                    dto.email,
+                    dto.full_name,
+                    user.username,
+                    generatedPassword,
+                    slot.slot_start,
+                    doctor.user?.full_name || "Bác sĩ"
+                );
+            } catch (error) {
+                console.error("Failed to send email:", error);
+                // Don't fail the appointment creation if email fails
+                // But log it for manual follow-up
+            }
+        }
+
+        return {
+            message: "Appointment booked",
+            appointmentId: appointment.id,
+            emailSent: !!generatedPassword,
+        };
     }
 
     // Lấy ra tất cả cuộc hẹn
@@ -266,22 +316,17 @@ export class AppointmentService {
         const userInfo = await this.getUserWithRole(userId);
         const { role, staffId } = userInfo;
 
-        const {date,keyword,visitFilter = 'all',page = 1,limit = 10} = dto;
+        const { date, keyword, visitFilter = 'all', page = 1, limit = 10 } = dto;
 
         const selectedDate = date ? dayjs(date) : dayjs();
         const startOfDay = selectedDate.startOf('day').toDate();
         const endOfDay = selectedDate.endOf('day').toDate();
 
-
-        /**
-         * =============================
-         * 👨‍⚕️ DOCTOR (giữ nguyên logic)
-         * =============================
-         */
+        // DOCTOR 
         if (role === UserRole.DOCTOR) {
             if (!staffId) {
                 throw new NotFoundException(
-                    'This user is a doctor but does not have staff profile',
+                    "This user is a doctor but does not have staff profile"
                 );
             }
 
@@ -291,51 +336,48 @@ export class AppointmentService {
                     doctor: { id: staffId },
                 },
                 relations: [
-                    'doctor',
-                    'doctor.user',
-                    'patient',
-                    'patient.user',
-                    'schedule_detail',
+                    "doctor",
+                    "doctor.user",
+                    "patient",
+                    "patient.user",
+                    "schedule_detail",
                 ],
-                order: { scheduled_date: 'ASC' },
+                order: { scheduled_date: "ASC" },
             });
         }
 
-        /**
-         * =============================
-         * 🧾 RECEPTIONIST
-         * =============================
-         */
+        // RECEPTIONIST
         if (role === UserRole.RECEPTIONIST) {
             const qb = this.appointmentRepository
-                .createQueryBuilder('a')
+                .createQueryBuilder("a")
                 // join
-                .leftJoin('a.patient', 'p')
-                .leftJoin('p.user', 'pu')
-                .leftJoin('a.doctor', 'd')
-                .leftJoin('d.user', 'du')
-                .leftJoin('a.schedule_detail', 'sd')
+                .leftJoin("a.patient", "p")
+                .leftJoin("p.user", "pu")
+                .leftJoin("a.doctor", "d")
+                .leftJoin("d.user", "du")
+                .leftJoin("a.schedule_detail", "sd")
                 // Lấy dữ liệu cần thiết
                 .select([
                     // appointment
-                    'a.id',
-                    'a.scheduled_date',
-                    'a.reason',
-                    'a.session',
-                    'a.status',
+                    "a.id",
+                    "a.scheduled_date",
+                    "a.reason",
+                    "a.session",
+                    "a.status",
                     // patient
-                    'p.id',
-                    'pu.full_name',
-                    'pu.gender',
-                    'pu.phone',
-                    'pu.address',
+                    "p.id",
+                    "pu.full_name",
+                    "pu.gender",
+                    "pu.phone",
+                    "pu.address",
                     // doctor
                     'd.id',
                     'du.full_name',
+                    'd.is_available',
                     // visit status
-                    'sd.id',
+                    "sd.id",
                 ])
-                .where('a.appointment_date BETWEEN :start AND :end', {
+                .where("a.appointment_date BETWEEN :start AND :end", {
                     start: startOfDay,
                     end: endOfDay,
                 });
@@ -344,21 +386,21 @@ export class AppointmentService {
             if (keyword) {
                 qb.andWhere(
                     `(pu.full_name LIKE :keyword OR pu.phone LIKE :keyword)`,
-                    { keyword: `%${keyword}%` },
+                    { keyword: `%${keyword}%` }
                 );
             }
 
             // Lọc theo trạng thái thăm khám
-            if (visitFilter === 'added') {
-                qb.andWhere('sd.id IS NOT NULL');
+            if (visitFilter === "added") {
+                qb.andWhere("sd.id IS NOT NULL");
             }
 
-            if (visitFilter === 'not_added') {
-                qb.andWhere('sd.id IS NULL');
+            if (visitFilter === "not_added") {
+                qb.andWhere("sd.id IS NULL");
             }
 
             // Sắp xếp + phân trang
-            qb.orderBy('a.scheduled_date', 'ASC')
+            qb.orderBy("a.scheduled_date", "ASC")
                 .skip((page - 1) * limit)
                 .take(limit);
 
@@ -373,17 +415,18 @@ export class AppointmentService {
                         name: item.patient?.user?.full_name,
                         gender: item.patient?.user?.gender,
                         phone: item.patient?.user?.phone,
-                        address: item.patient?.user?.address
+                        address: item.patient?.user?.address,
                     },
                     doctor: {
                         id: item.doctor?.id,
                         name: item.doctor?.user?.full_name,
+                        is_available: item.doctor?.is_available
                     },
                     scheduled_date: item.scheduled_date,
-                    reson: item.reason,
+                    reason: item.reason,
                     sesion: item.session,
                     status: item.status,
-                    visitStatus: item.schedule_detail ? 'added' : 'not_added',
+                    visitStatus: item.schedule_detail ? "added" : "not_added",
                 })),
                 pagination: {
                     total,
@@ -395,10 +438,9 @@ export class AppointmentService {
         }
 
         throw new NotFoundException(
-            'This endpoint is only available for doctors and receptionists',
+            "This endpoint is only available for doctors and receptionists"
         );
     }
-
 
     async updateAppointmentStatus(
         appointmentId: string,
@@ -443,68 +485,74 @@ export class AppointmentService {
             relations: ["doctor", "doctor.user", "patient", "schedule_detail"],
             order: { scheduled_date: "ASC" },
         });
-  }
-
-  // Lấy danh sách lịch hẹn của bệnh nhân hiện tại
-  async getAppointmentsForPatient(userId: string) {
-    const user = await this.userRepository.findOne({
-      where: { id: userId },
-      relations: ["patient"],
-    });
-
-    if (!user || !user.patient) {
-      throw new NotFoundException("Patient profile not found for this user");
     }
 
-    return this.appointmentRepository.find({
-      where: { patient: { id: user.patient.id } },
-      relations: ["doctor", "doctor.user", "patient", "schedule_detail"],
-      order: { scheduled_date: "ASC" },
-    });
-  }
+    // Lấy danh sách lịch hẹn của bệnh nhân hiện tại
+    async getAppointmentsForPatient(userId: string) {
+        const user = await this.userRepository.findOne({
+            where: { id: userId },
+            relations: ["patient"],
+        });
 
-  // Bệnh nhân hủy lịch hẹn của chính mình (trước 1 ngày so với giờ khám)
-  async cancelAppointment(userId: string, appointmentId: string) {
-    const appointment = await this.appointmentRepository.findOne({
-      where: { id: appointmentId },
-      relations: ["patient", "patient.user", "schedule_detail"],
-    });
+        if (!user || !user.patient) {
+            throw new NotFoundException(
+                "Patient profile not found for this user"
+            );
+        }
 
-    if (!appointment) {
-      throw new NotFoundException("Appointment not found");
+        return this.appointmentRepository.find({
+            where: { patient: { id: user.patient.id } },
+            relations: ["doctor", "doctor.user", "patient", "schedule_detail"],
+            order: { scheduled_date: "ASC" },
+        });
     }
 
-    // Kiểm tra quyền sở hữu lịch hẹn
-    if (appointment.patient?.user?.id !== userId) {
-      throw new BadRequestException("Bạn không có quyền hủy lịch hẹn này");
+    // Bệnh nhân hủy lịch hẹn của chính mình (trước 1 ngày so với giờ khám)
+    async cancelAppointment(userId: string, appointmentId: string) {
+        const appointment = await this.appointmentRepository.findOne({
+            where: { id: appointmentId },
+            relations: ["patient", "patient.user", "schedule_detail"],
+        });
+
+        if (!appointment) {
+            throw new NotFoundException("Appointment not found");
+        }
+
+        // Kiểm tra quyền sở hữu lịch hẹn
+        if (appointment.patient?.user?.id !== userId) {
+            throw new BadRequestException(
+                "Bạn không có quyền hủy lịch hẹn này"
+            );
+        }
+
+        // Chỉ cho phép hủy nếu còn ít nhất 1 ngày trước giờ khám
+        const now = dayjs();
+        const scheduled = dayjs(appointment.scheduled_date);
+        const cutoff = scheduled.subtract(1, "day");
+
+        if (now.isAfter(cutoff)) {
+            throw new BadRequestException(
+                "Bạn chỉ được phép hủy lịch hẹn trước ít nhất 1 ngày so với thời gian khám"
+            );
+        }
+
+        // Cập nhật trạng thái cuộc hẹn
+        appointment.status = AppointmentStatus.CANCELLED;
+        await this.appointmentRepository.save(appointment);
+
+        // Giải phóng lại slot nếu có
+        if (appointment.schedule_detail) {
+            appointment.schedule_detail.is_booked = false;
+            await this.workScheduleDetailRepository.save(
+                appointment.schedule_detail
+            );
+        }
+
+        return {
+            message: "Hủy lịch hẹn thành công",
+            status: appointment.status,
+        };
     }
-
-    // Chỉ cho phép hủy nếu còn ít nhất 1 ngày trước giờ khám
-    const now = dayjs();
-    const scheduled = dayjs(appointment.scheduled_date);
-    const cutoff = scheduled.subtract(1, "day");
-
-    if (now.isAfter(cutoff)) {
-      throw new BadRequestException(
-        "Bạn chỉ được phép hủy lịch hẹn trước ít nhất 1 ngày so với thời gian khám"
-      );
-    }
-
-    // Cập nhật trạng thái cuộc hẹn
-    appointment.status = AppointmentStatus.CANCELLED;
-    await this.appointmentRepository.save(appointment);
-
-    // Giải phóng lại slot nếu có
-    if (appointment.schedule_detail) {
-      appointment.schedule_detail.is_booked = false;
-      await this.workScheduleDetailRepository.save(appointment.schedule_detail);
-    }
-
-    return {
-      message: "Hủy lịch hẹn thành công",
-      status: appointment.status,
-    };
-  }
 
     private validateScheduledDate(date: Date | string) {
         const selected = dayjs(date).startOf("day");
@@ -520,5 +568,204 @@ export class AppointmentService {
         }
 
         return "";
+    }
+
+    // Lấy ra số lượng lịch hẹn, đã hoàn thành, đang thực hiện và đã hủy
+    async getCountAppointmentToday() {
+        const startOfDay = new Date();
+        startOfDay.setHours(0, 0, 0, 0);
+        const endOfDay = new Date();
+        endOfDay.setHours(23, 59, 59, 999);
+
+        const query = this.appointmentRepository
+            .createQueryBuilder('a')
+            .where('a.scheduled_date BETWEEN :start AND :end', {
+                start: startOfDay,
+                end: endOfDay,
+            });
+
+        const [
+            total,
+            // pending,
+            check_in,
+            doing,
+            completed,
+            cancelled,
+        ] = await Promise.all([
+            query.getCount(),
+
+            // query.clone()
+            //     .andWhere('a.status = :status', {
+            //         status: AppointmentStatus.PENDING,
+            //     })
+            //     .getCount(),
+
+            query.clone()
+                .andWhere('a.status = :status', {
+                    status: AppointmentStatus.CHECKED_IN,
+                })
+                .getCount(),
+
+            query.clone()
+                .andWhere('a.status = :status', {
+                    status: AppointmentStatus.DOING,
+                })
+                .getCount(),
+
+            query.clone()
+                .andWhere('a.status = :status', {
+                    status: AppointmentStatus.COMPLETED,
+                })
+                .getCount(),
+
+            query.clone()
+                .andWhere('a.status = :status', {
+                    status: AppointmentStatus.CANCELLED,
+                })
+                .getCount(),
+        ]);
+
+        return {
+            total,
+            // pending,
+            check_in,
+            doing,
+            completed,
+            cancelled,
+        };
+    }
+
+    //Lấy lịch hẹn dành cho dashboard của reception
+    async getAppointmentDashboard(dto: QueryAppointmentDashboardDTO) {
+        const { keyword, appointmentFilter = 'all', cursor, limit = 10 } = dto;
+        const startOfDay = new Date();
+        startOfDay.setHours(0, 0, 0, 0);
+        const endOfDay = new Date();
+        endOfDay.setHours(23, 59, 59, 999);
+
+        const query = this.appointmentRepository
+            .createQueryBuilder('a')
+            // join
+            .leftJoin('a.patient', 'p')
+            .leftJoin('p.user', 'pu')
+            .leftJoin('a.doctor', 'd')
+            .leftJoin('d.user', 'du')
+            .leftJoin('a.schedule_detail', 'sd')
+            // Lấy dữ liệu cần thiết
+            .select([
+                // appointment
+                'a.id',
+                'a.scheduled_date',
+                'a.reason',
+                'a.session',
+                'a.status',
+                // patient
+                'p.id',
+                'pu.full_name',
+                'pu.gender',
+                'pu.phone',
+                'pu.address',
+                // doctor
+                'd.id',
+                'du.full_name',
+                'd.is_available',
+                // visit status
+                'sd.id',
+            ])
+            .where('a.scheduled_date BETWEEN :start AND :end', {
+                start: startOfDay,
+                end: endOfDay,
+            });
+
+        // filter theo trang thái
+        if (appointmentFilter !== 'all') {
+            query.andWhere('a.status = :status', {
+                status: appointmentFilter,
+            });
+        }
+
+        // Tìm kiếm theo tên / SĐT
+        if (keyword) {
+            query.andWhere(
+                '(pu.full_name LIKE :keyword OR pu.phone LIKE :keyword)',
+                { keyword: `%${keyword}%` },
+            );
+        }
+
+        if (cursor) {
+            query.andWhere('a.scheduled_date > :cursor', {
+                cursor: new Date(cursor),
+            });
+        }
+        // Sắp xếp + phân trang
+        query.orderBy('a.scheduled_date', 'ASC')
+            .addOrderBy('a.id', 'ASC')
+            .take(limit + 1); // +1 để check còn data không
+
+        const rows = await query.getMany();
+
+        const hasMore = rows.length > limit;
+        const items = hasMore ? rows.slice(0, limit) : rows;
+
+        const nextCursor =
+            items.length > 0
+                ? items[items.length - 1].scheduled_date
+                : null;
+
+        return {
+            data: items.map((item) => ({
+                id: item.id,
+                patient: {
+                    id: item.patient?.id,
+                    name: item.patient?.user?.full_name,
+                    gender: item.patient?.user?.gender,
+                    phone: item.patient?.user?.phone,
+                    address: item.patient?.user?.address,
+                },
+                doctor: {
+                    id: item.doctor?.id,
+                    name: item.doctor?.user?.full_name,
+                    is_available: item.doctor?.is_available,
+                },
+                scheduled_date: item.scheduled_date,
+                reason: item.reason,
+                session: item.session,
+                status: item.status,
+                visitStatus: item.schedule_detail ? 'added' : 'not_added',
+            })),
+            meta: {
+                limit,
+                hasMore,
+                nextCursor,
+            },
+        };
+    }
+
+    //Hủy lịch hẹn của bệnh nhân dành cho receptionist
+    async cancelAppointmentDashboard(appointmentId: string) {
+        const appointment = await this.appointmentRepository.findOne({
+            where: { id: appointmentId },
+        });
+
+        if (!appointment) {
+            throw new NotFoundException('Không tìm thấy lịch hẹn');
+        }
+
+        if (appointment.status === AppointmentStatus.CANCELLED) {
+            throw new BadRequestException('Lịch hẹn đã bị hủy trước đó');
+        }
+
+        if (appointment.status === AppointmentStatus.COMPLETED) {
+            throw new BadRequestException('Không thể hủy lịch hẹn đã hoàn thành');
+        }
+
+        appointment.status = AppointmentStatus.CANCELLED;
+
+        await this.appointmentRepository.save(appointment);
+
+        return {
+            message: 'Hủy lịch hẹn thành công',
+            status: appointment.status,
+        };
     }
 }

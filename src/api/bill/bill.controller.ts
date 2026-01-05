@@ -8,6 +8,7 @@ import { CreateBillDto } from "./dto/create-bill.dto";
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import { QueryBillTodayDTO } from "./dto/query-bill-today.dto";
 import { QueryPrescriptionBillDto } from "./dto/query-prescription-bill.dto";
+import { QueryBillDashboardDTO } from "./dto/query-bill-dashboard.dto";
 
 @ApiTags("bill")
 @ApiBearerAuth()
@@ -60,4 +61,22 @@ export class BillController {
     async getPrescriptionBills(@Query() dto: QueryPrescriptionBillDto) {
         return this.billService.getPrescriptionBills(dto);
     }
+    @Get("dashboard/count")
+    @ApiOperation({
+        summary: "Đếm Bill",
+    })
+    @Roles("RECEPTIONIST")
+    async getCountBillToday() {
+        return this.billService.getCountBillToday();
+    }
+
+    @Get('dashboard/payment-report')
+    @ApiOperation({
+        summary: 'Danh sách bệnh nhân đã thanh toán (dashboard lễ tân)',
+    })
+    @Roles('RECEPTIONIST')
+    async getPaymentReport(@Query() dto: QueryBillDashboardDTO ) {
+        return this.billService.getPaymentReport(dto);
+    }
+
 }
