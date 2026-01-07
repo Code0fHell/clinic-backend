@@ -153,6 +153,27 @@ export class WorkScheduleService {
       throw new NotFoundException('Staff not found');
     }
 
+    // Check for existing schedules on the same dates
+    const existingSchedules = await this.workScheduleRepository.find({
+      where: {
+        staff: { id: dto.staff_id },
+      },
+      relations: ['staff'],
+    });
+
+    const existingDates = existingSchedules.map(s => {
+      const date = new Date(s.work_date);
+      return date.toISOString().split('T')[0];
+    });
+
+    const duplicateDates = dto.working_dates.filter(date => existingDates.includes(date));
+    
+    if (duplicateDates.length > 0) {
+      throw new BadRequestException(
+        `Lịch làm việc đã tồn tại cho các ngày: ${duplicateDates.join(', ')}. Vui lòng xóa lịch cũ hoặc chọn ngày khác.`
+      );
+    }
+
     const createdSchedules: any[] = [];
 
     for (const dateStr of dto.working_dates) {
