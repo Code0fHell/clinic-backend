@@ -351,6 +351,7 @@ export class VisitService {
                         id: true,
                         total_fee: true,
                         indication_type: true,
+                        indication_date: true,
                     },
                 },
             },
