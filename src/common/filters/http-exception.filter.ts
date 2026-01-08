@@ -12,17 +12,26 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
     const timestamp = new Date().toISOString();
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
-    let message = 'Internal server error';
+    let message: string | string[] = 'Internal server error';
 
     if (exception instanceof HttpException) {
       status = exception.getStatus();
       const res = exception.getResponse();
-      message = typeof res === 'string' ? res : (res as any).message || message;
+      
+      // Xử lý response từ HttpException
+      if (typeof res === 'string') {
+        message = res;
+      } else if (typeof res === 'object' && res !== null) {
+        // Giữ nguyên message dạng array hoặc string từ validation
+        message = (res as any).message || message;
+      }
     } else if (exception instanceof Error) {
       message = exception.message;
     }
 
-    this.logger.error(`[${status}] ${message}`, exception instanceof Error ? exception.stack : '');
+    // Log error với format phù hợp
+    const logMessage = Array.isArray(message) ? message.join(', ') : message;
+    this.logger.error(`[${status}] ${logMessage}`, exception instanceof Error ? exception.stack : '');
 
     response.status(status).json({
       statusCode: status,
