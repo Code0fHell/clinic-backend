@@ -313,4 +313,74 @@ export class IndicationService {
             })),
         }));
     }
+
+    // Lấy tất cả chỉ định của bác sĩ hôm nay với filter theo loại
+    async getDoctorTodayIndications(doctorUserId: string, indicationType?: IndicationType) {
+        // Tìm bác sĩ theo user_id
+        const doctor = await this.staffRepository.findOne({
+            where: { user: { id: doctorUserId } },
+            relations: ["user"],
+        });
+
+        if (!doctor) throw new NotFoundException("Doctor not found");
+
+        const today = new Date();
+        const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+
+        const whereCondition: any = {
+            doctor: { id: doctor.id },
+            indication_date: Between(startOfDay, endOfDay),
+        };
+
+        // Thêm filter theo loại nếu có
+        if (indicationType) {
+            whereCondition.indication_type = indicationType;
+        }
+
+        const indications = await this.indicationTicketRepository.find({
+            where: whereCondition,
+            relations: ['patient', 'doctor', 'doctor.user', 'serviceItems', 'serviceItems.medical_service', 'medical_ticket'],
+            order: {
+                indication_date: 'DESC',
+            },
+        });
+
+        return indications.map(indication => ({
+            id: indication.id,
+            barcode: indication.barcode,
+            indication_type: indication.indication_type,
+            is_completed: indication.is_completed,
+            patient: {
+                id: indication.patient.id,
+                patient_full_name: indication.patient.patient_full_name,
+                patient_dob: indication.patient.patient_dob,
+                patient_phone: indication.patient.patient_phone,
+                patient_address: indication.patient.patient_address,
+                patient_gender: indication.patient.patient_gender,
+            },
+            doctor: {
+                id: indication.doctor.id,
+                user: {
+                    full_name: indication.doctor.user.full_name,
+                },
+            },
+            diagnosis: indication.diagnosis,
+            indication_date: indication.indication_date,
+            total_fee: indication.total_fee,
+            medical_ticket_id: indication.medical_ticket?.id,
+            serviceItems: indication.serviceItems.map(item => ({
+                id: item.id,
+                medical_service: {
+                    id: item.medical_service.id,
+                    service_name: item.medical_service.service_name,
+                    service_type: item.medical_service.service_type,
+                    description: item.medical_service.description,
+                    reference_value: item.medical_service.reference_value,
+                },
+                quantity: item.quantity,
+                queue_number: item.queue_number,
+            })),
+        }));
+    }
 }
