@@ -3,8 +3,8 @@ import { Type } from 'class-transformer';
 
 export class QueryVisitDTO {
     @IsOptional()
-    @IsIn(['all', 'checked_in', 'completed', 'cancelled'])
-    visitFilter?: 'all' | 'checked_in' | 'completed' | 'cancelled' = 'all';
+    @IsIn(['all', 'checked_in', 'doing', 'completed', 'cancelled'])
+    visitFilter?: 'all' | 'checked_in' | 'doing' | 'completed' | 'cancelled' = 'all';
 
     @IsOptional()
     @IsIn(['all', 'true', 'false'])

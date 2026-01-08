@@ -38,7 +38,7 @@ export class BillService {
         private readonly indicationTicketRepository: Repository<IndicationTicket>,
         @InjectRepository(Prescription)
         private readonly prescriptionRepository: Repository<Prescription>
-    ) {}
+    ) { }
 
     // Hàm so sánh ngày
     private isSameDay(date: Date): boolean {
@@ -503,44 +503,45 @@ export class BillService {
         const endOfDay = new Date();
         endOfDay.setHours(23, 59, 59, 999);
 
-        // ===== SUBQUERY: tổng tiền cận lâm sàng đã thanh toán =====
-        const paidIndicationSubQuery = this.billRepository
-            .createQueryBuilder('b')
-            .innerJoin('b.payments', 'p', 'p.payment_status = :success', {
-                success: 'SUCCESS',
+        // chỉ lấy các PHIẾU CHỈ ĐỊNH có PAYMENT SUCCESS TRONG NGÀY 
+        const indicationPaidSub = this.paymentRepository
+            .createQueryBuilder('p')
+            .innerJoin('p.bill', 'b')
+            .innerJoin('b.indication_ticket', 'it')
+
+            .select('it.medical_ticket_id', 'medical_ticket_id')
+            .addSelect('SUM(it.total_fee)', 'para_fee')
+
+            .where('p.payment_status = :success', { success: PaymentStatus.SUCCESS })
+            .andWhere('p.paid_at BETWEEN :startOfDay AND :endOfDay', {
+                startOfDay,
+                endOfDay,
             })
-            .select('b.medical_ticket_id', 'medical_ticket_id')
-            .addSelect('SUM(b.total)', 'paraclinical_fee')
-            .where('b.indication_ticket_id IS NOT NULL')
-            .groupBy('b.medical_ticket_id');
+
+            .groupBy('it.medical_ticket_id');
 
         const query = this.medicalTicketRepository
             .createQueryBuilder('mt')
             .innerJoin('mt.visit_id', 'visit')
             .innerJoin('visit.patient', 'patient')
 
-            // bill + payment lâm sàng
-            .innerJoin('bill', 'bill_mt', 'bill_mt.medical_ticket_id = mt.id')
-            .innerJoin(
-                'bill_mt.payments',
-                'pay_mt',
-                `
-            pay_mt.payment_status = :success
-            AND pay_mt.paid_at BETWEEN :startOfDay AND :endOfDay
-            `,
-                { success: 'SUCCESS', startOfDay, endOfDay }
-            )
+            // join BILL LÂM SÀNG + PAYMENT SUCCESS hôm nay
+            .innerJoin(Bill, 'bclin', 'bclin.medical_ticket_id = mt.id')
+            .innerJoin('bclin.payments', 'pclin', `
+            pclin.payment_status = :success
+            AND pclin.paid_at BETWEEN :startOfDay AND :endOfDay
+        `, { success: PaymentStatus.SUCCESS, startOfDay, endOfDay })
 
-            // join kết quả subquery
+            // join SUBQUERY tiền cận lâm sàng
             .leftJoin(
-                '(' + paidIndicationSubQuery.getQuery() + ')',
+                '(' + indicationPaidSub.getQuery() + ')',
                 'ind_paid',
                 'ind_paid.medical_ticket_id = mt.id'
             )
-            .setParameters(paidIndicationSubQuery.getParameters());
+            .setParameters(indicationPaidSub.getParameters());
 
         if (cursor) {
-            query.andWhere('pay_mt.paid_at < :cursor', {
+            query.andWhere('pclin.paid_at < :cursor', {
                 cursor: new Date(cursor),
             });
         }
@@ -549,14 +550,16 @@ export class BillService {
             .select([
                 'mt.id AS medical_ticket_id',
                 'patient.patient_full_name AS patient_name',
-                'pay_mt.paid_at AS paid_at',
+                'pclin.paid_at AS paid_at',
+                // === TỔNG TIỀN = clinical_fee + total_fee indication ===
                 `
             (
-                mt.clinical_fee + COALESCE(ind_paid.paraclinical_fee, 0)
+                mt.clinical_fee
+                + COALESCE(ind_paid.para_fee, 0)
             ) AS total_amount
             `,
             ])
-            .orderBy('pay_mt.paid_at', 'DESC')
+            .orderBy('pclin.paid_at', 'DESC')
             .take(limit + 1);
 
         const rows = await query.getRawMany();
