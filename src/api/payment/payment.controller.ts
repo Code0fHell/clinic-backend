@@ -20,7 +20,7 @@ export class PaymentController {
             "Returns VietQR URL and QR code image (base64) for the patient to pay via bank transfer.",
     })
     @ApiBody({ type: GeneratePaymentQRDto })
-    @Roles("RECEPTIONIST")
+    @Roles("RECEPTIONIST", "PHARMACIST")
     async createVietQRPayment(@Body() dto: GeneratePaymentQRDto) {
         return this.paymentService.createVietQRPayment(dto);
     }
@@ -31,7 +31,7 @@ export class PaymentController {
         summary: "Check payment status by order code",
         description: "Returns payment status for the given order code",
     })
-    @Roles("RECEPTIONIST")
+    @Roles("RECEPTIONIST", "PHARMACIST")
     async getPaymentStatus(@Param("orderCode") orderCode: string) {
         return this.paymentService.getPaymentStatus(orderCode);
     }
@@ -57,7 +57,7 @@ export class PaymentController {
         description: "Trả về trạng thái thanh toán thành công"
     })
     @ApiBody({ type: GeneratePaymentQRDto })
-    @Roles("RECEPTIONIST")
+    @Roles("RECEPTIONIST", "PHARMACIST")
     async createCashPayment(@Body() dto: GeneratePaymentQRDto) {
         return this.paymentService.createCashPayment(dto);
     }

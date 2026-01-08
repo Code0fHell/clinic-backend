@@ -25,6 +25,7 @@ export class MedicalRecordController {
   @Get('history')
   @Roles(UserRole.PATIENT)
   async getMyHistory(@CurrentUser('patient') patient) {
+    console.log("patient, ", patient);
     return this.medicalRecordService.getPatientHistory(patient.id);
   }
 

@@ -1,21 +1,30 @@
-import { Controller, Post, Get, Body, UseGuards, Param, Query } from "@nestjs/common";
+import {
+    Controller,
+    Post,
+    Get,
+    Body,
+    UseGuards,
+    Param,
+    Query,
+} from "@nestjs/common";
 import { BillService } from "./bill.service";
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiBody } from "@nestjs/swagger";
 import { AuthGuard } from "@nestjs/passport";
 import { RolesGuard } from "../../common/guards/roles.guard";
 import { Roles } from "../../common/guards/roles.decorator";
 import { CreateBillDto } from "./dto/create-bill.dto";
-import { CurrentUser } from 'src/common/decorators/current-user.decorator';
+import { CurrentUser } from "src/common/decorators/current-user.decorator";
 import { QueryBillTodayDTO } from "./dto/query-bill-today.dto";
 import { QueryPrescriptionBillDto } from "./dto/query-prescription-bill.dto";
 import { QueryBillDashboardDTO } from "./dto/query-bill-dashboard.dto";
+import { UserRole } from "src/shared/enums/user-role.enum";
 
 @ApiTags("bill")
 @ApiBearerAuth()
 @UseGuards(AuthGuard("jwt"), RolesGuard)
 @Controller("api/v1/bill")
 export class BillController {
-    constructor(private readonly billService: BillService) { }
+    constructor(private readonly billService: BillService) {}
 
     @Post()
     @ApiOperation({
@@ -27,7 +36,7 @@ export class BillController {
     `,
     })
     @ApiBody({ type: CreateBillDto })
-    @Roles("RECEPTIONIST")
+    @Roles(UserRole.RECEPTIONIST, UserRole.PHARMACIST)
     async createBill(@Body() dto: CreateBillDto) {
         return this.billService.createBill(dto);
     }
@@ -36,7 +45,7 @@ export class BillController {
     @ApiOperation({
         summary: "Lấy tất cả Bill",
     })
-    @Roles("RECEPTIONIST")
+    @Roles(UserRole.RECEPTIONIST)
     async getAllBillToday(
         @CurrentUser() user: any, // hoặc @Req() req: Request)
         @Query() dto: QueryBillTodayDTO
@@ -44,12 +53,18 @@ export class BillController {
         return this.billService.getAllBillToday(user, dto);
     }
 
+    @Get("/prescription/:id")
+    @Roles(UserRole.PHARMACIST, UserRole.OWNER)
+    async getBillByPrescription(@Param("id") id: string) {
+        return this.billService.getBillByPrescription(id);
+    }
+
     @Get("/:billId")
     @ApiOperation({
         summary: "Lấy chi tiết Bill",
     })
-    @Roles("RECEPTIONIST")
-    async getDetailBill(@Param('billId') billId: string) {
+    @Roles(UserRole.RECEPTIONIST, UserRole.PHARMACIST)
+    async getDetailBill(@Param("billId") billId: string) {
         return this.billService.getDetailBill(billId);
     }
 
@@ -57,7 +72,7 @@ export class BillController {
     @ApiOperation({
         summary: "Lấy danh sách hóa đơn thuốc với filters (cho dược sĩ)",
     })
-    @Roles("PHARMACIST", "OWNER")
+    @Roles(UserRole.PHARMACIST, UserRole.OWNER)
     async getPrescriptionBills(@Query() dto: QueryPrescriptionBillDto) {
         return this.billService.getPrescriptionBills(dto);
     }
@@ -65,18 +80,17 @@ export class BillController {
     @ApiOperation({
         summary: "Đếm Bill",
     })
-    @Roles("RECEPTIONIST")
+    @Roles(UserRole.RECEPTIONIST)
     async getCountBillToday() {
         return this.billService.getCountBillToday();
     }
 
-    @Get('dashboard/payment-report')
+    @Get("dashboard/payment-report")
     @ApiOperation({
-        summary: 'Danh sách bệnh nhân đã thanh toán (dashboard lễ tân)',
+        summary: "Danh sách bệnh nhân đã thanh toán (dashboard lễ tân)",
     })
-    @Roles('RECEPTIONIST')
-    async getPaymentReport(@Query() dto: QueryBillDashboardDTO ) {
+    @Roles(UserRole.RECEPTIONIST)
+    async getPaymentReport(@Query() dto: QueryBillDashboardDTO) {
         return this.billService.getPaymentReport(dto);
     }
-
 }

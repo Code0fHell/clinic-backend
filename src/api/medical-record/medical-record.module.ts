@@ -8,6 +8,7 @@ import { Prescription } from '../../shared/entities/prescription.entity';
 import { ImageResult } from '../../shared/entities/image-result.entity';
 import { MedicalRecordService } from './medical-record.service';
 import { MedicalRecordController } from './medical-record.controller';
+import { LabTestResult } from 'src/shared/entities/lab-test-result.entity';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { MedicalRecordController } from './medical-record.controller';
       IndicationTicket,
       Prescription,
       ImageResult,
+      LabTestResult
     ]),
   ],
   providers: [MedicalRecordService],
