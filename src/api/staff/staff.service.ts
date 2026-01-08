@@ -99,6 +99,23 @@ export class StaffService {
     if (![UserRole.RECEPTIONIST, UserRole.PHARMACIST, UserRole.DOCTOR].includes(dto.user_role)) {
       throw new ForbiddenException('Invalid staff role');
     }
+
+    // Kiểm tra username đã tồn tại
+    const existingUsername = await this.userRepository.findOne({
+      where: { username: dto.username }
+    });
+    if (existingUsername) {
+      throw new ForbiddenException('Tên đăng nhập đã tồn tại trong hệ thống');
+    }
+
+    // Kiểm tra email đã tồn tại
+    const existingEmail = await this.userRepository.findOne({
+      where: { email: dto.email }
+    });
+    if (existingEmail) {
+      throw new ForbiddenException('Email đã tồn tại trong hệ thống');
+    }
+
     const hashedPassword = await bcrypt.hash(dto.password, 10);
     const user = this.userRepository.create({
       username: dto.username,
