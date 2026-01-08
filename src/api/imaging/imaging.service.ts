@@ -74,6 +74,10 @@ export class ImagingService {
             imageResults.push(saved);
         }
 
+        // Cập nhật trạng thái phiếu chỉ định là đã hoàn thành
+        indication.is_completed = true;
+        await this.indicationTicketRepository.save(indication);
+
         // Optionally: Notify patient and clinical doctor (e.g., via event, notification, or status update)
 
         return {
@@ -82,6 +86,7 @@ export class ImagingService {
             image_urls: imageResults.map((r) => r.image_url),
             barcodes: imageResults.map((r) => r.barcode),
             count: imageResults.length,
+            indication_completed: true,
         };
     }
 

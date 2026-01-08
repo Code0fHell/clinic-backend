@@ -1,10 +1,11 @@
-import { Controller, Post, Body, Req, UseGuards, Get } from '@nestjs/common';
+import { Controller, Post, Body, Req, UseGuards, Get, Query } from '@nestjs/common';
 import { IndicationService } from './indication.service';
-import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/guards/roles.decorator';
 import { CreateIndicationTicketDto } from './dto/create-indication-ticket.dto';
+import { IndicationType } from 'src/shared/enums/indication-ticket-type.enum';
 
 @ApiTags('indication-ticket')
 @ApiBearerAuth()
@@ -27,5 +28,17 @@ export class IndicationController {
   @Roles('DOCTOR')
   async getTodayLabIndications() {
     return this.indicationService.getTodayLabIndications();
+  }
+
+  @Get('doctor/today')
+  @ApiOperation({ summary: 'Doctor gets their today indications with optional type filter' })
+  @ApiQuery({ name: 'type', required: false, enum: IndicationType })
+  @Roles('DOCTOR')
+  async getDoctorTodayIndications(
+    @Req() req,
+    @Query('type') type?: IndicationType
+  ) {
+    const userId = req.user.id;
+    return this.indicationService.getDoctorTodayIndications(userId, type);
   }
 }

@@ -183,11 +183,57 @@ export class LabTestResultService {
     });
     if (!indication) throw new NotFoundException('Indication ticket not found');
 
-    return this.labTestResultRepository.find({
+    const results = await this.labTestResultRepository.find({
       where: { indication: { id: indicationId } },
-      relations: ['patient', 'doctor', 'doctor.user'],
+      relations: [
+        'patient',
+        'doctor',
+        'doctor.user',
+        'indication',
+        'indication.serviceItems',
+        'indication.serviceItems.medical_service',
+      ],
       order: { created_at: 'DESC' },
     });
+
+    // Nếu không có kết quả, throw 404
+    if (!results || results.length === 0) {
+      throw new NotFoundException('No lab test results found for this indication');
+    }
+
+    // Trả về kết quả đầu tiên với format đầy đủ
+    const result = results[0];
+    return {
+      id: result.id,
+      barcode: result.barcode,
+      indication: {
+        id: result.indication.id,
+        barcode: result.indication.barcode,
+        diagnosis: result.indication.diagnosis,
+        indication_date: result.indication.indication_date,
+      },
+      patient: {
+        id: result.patient.id,
+        patient_full_name: result.patient.patient_full_name,
+        patient_dob: result.patient.patient_dob,
+        patient_phone: result.patient.patient_phone,
+        patient_address: result.patient.patient_address,
+        patient_gender: result.patient.patient_gender,
+      },
+      doctor: {
+        id: result.doctor.id,
+        user: {
+          full_name: result.doctor.user.full_name,
+        },
+      },
+      testResults: result.indication.serviceItems.map(item => ({
+        serviceName: item.medical_service.service_name,
+        result: item.test_result,
+        referenceValue: item.medical_service.reference_value,
+      })),
+      conclusion: result.conclusion,
+      created_at: result.created_at,
+    };
   }
 
   async getTodayCompletedResults() {
