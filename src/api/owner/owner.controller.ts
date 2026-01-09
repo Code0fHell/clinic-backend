@@ -100,6 +100,7 @@ export class OwnerController {
     @ApiOperation({ summary: 'Get weekly schedule overview for all doctor, receptionist, pharamist' })
     @Roles('OWNER')
     @ApiQuery({ name: 'start_date', required: true, example: '2026-01-05' })
+    @ApiQuery({ name: 'search', required: false, example: 'Nguyễn' })
     async getWeeklySchedule(@Query() dto: QueryWeeklyScheduleOwnerDto) {
         return this.ownerService.getWeeklySchedule(dto);
     }
@@ -125,6 +126,40 @@ export class OwnerController {
             timeframe,
             res,
         );
+    }
+
+    @Get('medicine-sales')
+    @Roles(UserRole.OWNER)
+    @ApiOperation({
+        summary: 'Get medicine sales statistics',
+        description: 'Get number of medicines sold grouped by medicine name within a date range',
+    })
+    @ApiQuery({ name: 'startDate', type: String, example: '2024-01-01' })
+    @ApiQuery({ name: 'endDate', type: String, example: '2024-01-31' })
+    @ApiResponse({
+        status: 200,
+        description: 'Medicine sales data',
+        schema: {
+            type: 'array',
+            items: {
+                type: 'object',
+                properties: {
+                    id: { type: 'string', format: 'uuid' },
+                    name: { type: 'string', example: 'Paracetamol' },
+                    quantity: { type: 'number', example: 45 },
+                },
+            },
+        },
+    })
+    async getMedicineSales(
+        @Query('startDate') startDate: string,
+        @Query('endDate') endDate: string,
+    ) {
+        const data = await this.ownerService.getMedicineSales(startDate, endDate);
+        return {
+            success: true,
+            data,
+        };
     }
 
 }

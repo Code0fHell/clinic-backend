@@ -4,6 +4,8 @@ import { Repository, Between } from 'typeorm';
 import { Bill } from '../../shared/entities/bill.entity';
 import { Payment } from '../../shared/entities/payment.entity';
 import { Visit } from '../../shared/entities/visit.entity';
+import { PrescriptionDetail } from '../../shared/entities/prescription-detail.entity';
+import { Prescription } from '../../shared/entities/prescription.entity';
 import { BillType } from '../../shared/enums/bill-type.enum';
 import { PaymentStatus } from '../../shared/enums/payment-status.enum';
 import { Timeframe } from './dto/dashboard-revenue-query.dto';
@@ -39,6 +41,10 @@ export class OwnerService {
         private readonly paymentRepository: Repository<Payment>,
         @InjectRepository(Visit)
         private readonly visitRepository: Repository<Visit>,
+        @InjectRepository(PrescriptionDetail)
+        private readonly prescriptionDetailRepository: Repository<PrescriptionDetail>,
+        @InjectRepository(Prescription)
+        private readonly prescriptionRepository: Repository<Prescription>,
         @InjectRepository(WorkSchedule)
         private readonly workScheduleRepository: Repository<WorkSchedule>,
         @InjectRepository(WorkScheduleDetail)
@@ -382,7 +388,7 @@ export class OwnerService {
 
     // Lấy lịch làm việc của tất cả nhân viên trong 1 tuần
     async getWeeklySchedule(dto: QueryWeeklyScheduleOwnerDto) {
-        const { start_date, roleType = 'all', cursor, limit = 10 } = dto;
+        const { start_date, roleType = 'all', cursor, limit = 10, search } = dto;
 
         // 00:00 ngày đầu tuần (VN)
         const startDate = new Date(`${start_date}T00:00:00+07:00`);
@@ -407,6 +413,12 @@ export class OwnerService {
 
         if (roleType !== 'all') {
             userQB.andWhere('user.user_role = :roleType', { roleType });
+        }
+
+        // Server-side search by name or username (case-insensitive)
+        if (search && search.trim().length > 0) {
+            const q = `%${search.trim().toLowerCase()}%`;
+            userQB.andWhere('(LOWER(user.full_name) LIKE :q OR LOWER(user.username) LIKE :q)', { q });
         }
 
         const users = await userQB.getMany();
@@ -552,6 +564,35 @@ export class OwnerService {
                 })),
             },
         };
+    }
+
+    // Lấy số lượng bán theo thuốc
+    async getMedicineSales(startDate: string, endDate: string) {
+        const start = new Date(`${startDate}T00:00:00+07:00`);
+        const end = new Date(`${endDate}T23:59:59.999+07:00`);
+
+        // Lấy tất cả prescription_detail từ những đơn được tạo trong khoảng thời gian
+        // Prescription phải có status = APPROVED
+        // và liên kết tới hóa đơn có payment SUCCESS
+        const details = await this.prescriptionDetailRepository
+            .createQueryBuilder('pd')
+            .innerJoin('pd.prescription', 'p')
+            .innerJoin('pd.medicine', 'm')
+            .leftJoin('Bill', 'b', 'b.prescription_id = p.id')
+            .leftJoin('b.payments', 'pay', 'pay.payment_status = :paymentStatus', { paymentStatus: 'SUCCESS' })
+            .where('p.created_at BETWEEN :start AND :end', { start, end })
+            .andWhere('p.status = :pStatus', { pStatus: 'APPROVED' })
+            .andWhere('pay.id IS NOT NULL')
+            .groupBy('pd.medicine_id')
+            .addGroupBy('m.id')
+            .addGroupBy('m.name')
+            .select('m.id', 'id')
+            .addSelect('m.name', 'name')
+            .addSelect('SUM(pd.quantity)', 'quantity')
+            .orderBy('SUM(pd.quantity)', 'DESC')
+            .getRawMany();
+
+        return details;
     }
 
 
