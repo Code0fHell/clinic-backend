@@ -87,12 +87,19 @@ export class MedicalServiceService {
     return this.medicalServiceRepository.findOne({ where: { id }, relations: ['room'] });
   }
   
-  // Tìm kiếm dịch vụ y tế theo tên
-  async searchByName(q: string) {
-    return this.medicalServiceRepository.find({
-      where: { service_name: Like(`%${q}%`) },
-      take: 10,
-      relations: ['room'],
-    });
+  // Tìm kiếm dịch vụ y tế theo tên và loại
+  async searchByName(q: string, service_type?: string) {
+    const queryBuilder = this.medicalServiceRepository
+      .createQueryBuilder('service')
+      .leftJoinAndSelect('service.room', 'room')
+      .where('service.service_name LIKE :q', { q: `%${q}%` })
+      .take(10);
+
+    // Filter theo service_type nếu có
+    if (service_type && Object.values(ServiceType).includes(service_type as ServiceType)) {
+      queryBuilder.andWhere('service.service_type = :service_type', { service_type });
+    }
+
+    return queryBuilder.getMany();
   }
 }
