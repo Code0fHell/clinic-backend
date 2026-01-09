@@ -11,9 +11,11 @@ import { Payment } from '../../shared/entities/payment.entity';
 import { Visit } from '../../shared/entities/visit.entity';
 import { OwnerService } from './owner.service';
 import { OwnerController } from './owner.controller';
+import { PrescriptionDetail } from 'src/shared/entities/prescription-detail.entity';
+import { Prescription } from 'src/shared/entities/prescription.entity';
 
 @Module({
-    imports: [TypeOrmModule.forFeature([Staff, Patient, User, WorkSchedule, WorkScheduleDetail, Bill, Payment, Visit])],
+    imports: [TypeOrmModule.forFeature([Staff, Patient, User, WorkSchedule, WorkScheduleDetail, Bill, Payment, Visit, PrescriptionDetail, Prescription])],
     providers: [OwnerService, RolesGuard],
     controllers: [OwnerController],
     exports: [OwnerService],
