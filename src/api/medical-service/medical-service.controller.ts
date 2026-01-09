@@ -60,10 +60,13 @@ export class MedicalServiceController {
   }
 
   @Get('search')
-  @ApiOperation({ summary: 'Search medical services by name' })
+  @ApiOperation({ summary: 'Search medical services by name and type' })
   @ApiResponse({ status: 200, type: [MedicalService] })
-  async search(@Query('q') q: string) {
-    const data = await this.medicalServiceService.searchByName(q);
+  async search(
+    @Query('q') q: string,
+    @Query('service_type') service_type?: string,
+  ) {
+    const data = await this.medicalServiceService.searchByName(q, service_type);
     return {
       success: true,
       message: data.length ? 'Search results found' : 'No results found',
