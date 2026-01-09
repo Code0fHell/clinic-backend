@@ -9,6 +9,7 @@ import {
     Req,
     Get,
     Param,
+    Query,
 } from "@nestjs/common";
 import { FileInterceptor, FilesInterceptor } from "@nestjs/platform-express";
 import { diskStorage } from "multer";
@@ -23,6 +24,7 @@ import { AuthGuard } from "@nestjs/passport";
 import { RolesGuard } from "../../common/guards/roles.guard";
 import { Roles } from "../../common/guards/roles.decorator";
 import { CreateImageResultDto } from "./dto/create-image-result.dto";
+import { QueryImagingResultDto } from "./dto/query-imaging-result.dto";
 import { extname } from "path";
 
 @ApiTags("imaging")
@@ -98,6 +100,20 @@ export class ImagingController {
         );
     }
 
+    @Get("completed")
+    @ApiOperation({
+        summary:
+            "Diagnostic doctor - get completed imaging results with filter & pagination",
+    })
+    @Roles("DOCTOR")
+    async getCompletedResultsWithFilter(
+        @Req() req,
+        @Query() query: QueryImagingResultDto
+    ) {
+        const userId = req.user.id;
+        return this.imagingService.getCompletedResultsWithFilter(query, userId);
+    }
+
     @Get("patient/:patientId/results")
     @ApiOperation({ summary: "PATIENT views their X-ray results" })
     @Roles("PATIENT", "DOCTOR")
@@ -112,5 +128,17 @@ export class ImagingController {
     @Roles("DOCTOR")
     async getResultsByIndication(@Param("indicationId") indicationId: string) {
         return this.imagingService.getResultsByIndication(indicationId);
+    }
+
+    @Get("indications/today/pending")
+    @ApiOperation({
+        summary: "Diagnostic doctor - list today's pending imaging indications",
+    })
+    @Roles("DOCTOR")
+    async getTodayPendingIndications(@Req() req) {
+        const userId = req.user.id;
+        return this.imagingService.getTodayPendingIndicationsForDiagnosticDoctor(
+            userId
+        );
     }
 }
