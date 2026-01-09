@@ -100,7 +100,7 @@ export class ImagingController {
         );
     }
 
-    @Get("completed")
+    @Get("query/completed")
     @ApiOperation({
         summary:
             "Diagnostic doctor - get completed imaging results with filter & pagination",
