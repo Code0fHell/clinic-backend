@@ -55,6 +55,16 @@ export class CreateStaffDto {
   full_name?: string;
 
   @ApiProperty({
+    example: '0912345678',
+    required: false,
+    description: 'Số điện thoại của nhân viên',
+  })
+  @IsOptional()
+  @IsString({ message: 'Số điện thoại phải là chuỗi' })
+  @Matches(/^[0-9]{10,11}$/, { message: 'Số điện thoại phải có 10-11 chữ số' })
+  phone?: string;
+
+  @ApiProperty({
     example: 'Khoa Nội Tổng hợp',
     required: false,
     description: 'Tên phòng ban hoặc khoa trực thuộc',

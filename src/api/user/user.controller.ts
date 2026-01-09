@@ -112,6 +112,14 @@ export class UserController {
     return this.userService.getAllUsers(page || 1, limit || 10, role);
   }
 
+  @Put(':id')
+  @ApiOperation({ summary: 'Update user by ID (Admin only)' })
+  @Roles('ADMIN', 'OWNER')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  async updateUser(@Param('id') id: string, @Body() dto: UpdateProfileDto) {
+    return this.userService.updateProfile(id, dto);
+  }
+
   @Delete(':id')
   @ApiOperation({ summary: 'Delete user by ID (Admin only)' })
   @Roles('ADMIN', 'OWNER')

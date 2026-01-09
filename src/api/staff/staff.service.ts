@@ -122,6 +122,7 @@ export class StaffService {
       password: hashedPassword,
       email: dto.email,
       full_name: dto.full_name,
+      phone: dto.phone,
       user_role: dto.user_role,
     });
     await this.userRepository.save(user);
