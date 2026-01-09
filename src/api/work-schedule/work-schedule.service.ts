@@ -257,17 +257,31 @@ export class WorkScheduleService {
     });
     
     if (!schedule) {
-      throw new NotFoundException('Work schedule not found');
+      throw new NotFoundException('Không tìm thấy lịch làm việc');
     }
 
     // Kiểm tra xem có slot nào đã được đặt không
     const hasBookedSlots = schedule.details?.some(detail => detail.is_booked);
     if (hasBookedSlots) {
-      throw new BadRequestException('Cannot delete schedule with booked slots');
+      throw new BadRequestException('Không thể xóa lịch có slot đã được đặt hẹn');
     }
 
-    await this.workScheduleRepository.remove(schedule);
-    return { message: 'Work schedule deleted successfully' };
+    try {
+      // Xóa các details trước
+      if (schedule.details && schedule.details.length > 0) {
+        await this.workScheduleDetailRepository.remove(schedule.details);
+      }
+      
+      // Sau đó xóa schedule
+      await this.workScheduleRepository.remove(schedule);
+      return { message: 'Xóa lịch làm việc thành công' };
+    } catch (error) {
+      // Xử lý lỗi foreign key constraint
+      if (error.code === 'ER_ROW_IS_REFERENCED_2' || error.errno === 1451) {
+        throw new BadRequestException('Không thể xóa lịch này vì có dữ liệu liên quan (slot đã được đặt hoặc có lịch hẹn)');
+      }
+      throw new BadRequestException('Lỗi khi xóa lịch làm việc: ' + error.message);
+    }
   }
 
   // Sao chép lịch từ tuần trước
