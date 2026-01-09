@@ -9,10 +9,12 @@ import { ImageResult } from "../../shared/entities/image-result.entity";
 import { IndicationTicket } from "../../shared/entities/indication-ticket.entity";
 import { Staff } from "../../shared/entities/staff.entity";
 import { Patient } from "../../shared/entities/patient.entity";
-import { Repository } from "typeorm";
+import { Repository, Between } from "typeorm";
 import { CreateImageResultDto } from "./dto/create-image-result.dto";
 import { DoctorType } from "src/shared/enums/doctor-type.enum";
 import { ServiceIndication } from "src/shared/entities/service-indication.entity";
+import { QueryImagingResultDto } from "./dto/query-imaging-result.dto";
+import { IndicationType } from "src/shared/enums/indication-ticket-type.enum";
 
 @Injectable()
 export class ImagingService {
@@ -326,5 +328,145 @@ export class ImagingService {
         });
 
         return Array.from(indicationMap.values());
+    }
+
+    async getCompletedResultsWithFilter(
+        query: QueryImagingResultDto,
+        userId: string
+    ) {
+        // Kiểm tra quyền bác sĩ chẩn đoán
+        const doctor = await this.staffRepository.findOne({
+            where: { user: { id: userId } },
+            relations: ["user"],
+        });
+        if (!doctor || doctor.doctor_type !== DoctorType.DIAGNOSTIC) {
+            throw new ForbiddenException("Bạn không có quyền truy cập");
+        }
+
+        const { filter_type = "all", page = 1, limit = 10 } = query;
+        let where: any = {};
+
+        // Filter theo ngày/tuần/tháng
+        const now = new Date();
+        if (filter_type === "day") {
+            const start = new Date(
+                now.getFullYear(),
+                now.getMonth(),
+                now.getDate()
+            );
+            const end = new Date(
+                now.getFullYear(),
+                now.getMonth(),
+                now.getDate() + 1
+            );
+            where.created_at = Between(start, end);
+        } else if (filter_type === "week") {
+            const start = new Date(now);
+            start.setDate(now.getDate() - now.getDay());
+            const end = new Date(start);
+            end.setDate(start.getDate() + 7);
+            where.created_at = Between(start, end);
+        } else if (filter_type === "month") {
+            const start = new Date(now.getFullYear(), now.getMonth(), 1);
+            const end = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+            where.created_at = Between(start, end);
+        }
+        // Chỉ lấy kết quả đã hoàn thành
+        where.indication = { is_completed: true };
+
+        // Query với phân trang
+        const [results, total] = await this.imageResultRepository.findAndCount({
+            where,
+            relations: [
+                "patient",
+                "doctor",
+                "doctor.user",
+                "indication",
+                "indication.serviceItems",
+                "indication.serviceItems.medical_service",
+            ],
+            order: { created_at: "DESC" },
+            skip: (page - 1) * limit,
+            take: limit,
+        });
+
+        return {
+            results,
+            pagination: {
+                page,
+                limit,
+                total,
+                totalPages: Math.ceil(total / limit),
+            },
+        };
+    }
+
+    async getTodayPendingIndicationsForDiagnosticDoctor(userId: string) {
+        const doctor = await this.staffRepository.findOne({
+            where: { user: { id: userId } },
+            relations: ["user"],
+        });
+        if (!doctor || doctor.doctor_type !== DoctorType.DIAGNOSTIC) {
+            throw new ForbiddenException("Bạn không có quyền truy cập");
+        }
+
+        const today = new Date();
+        const startOfDay = new Date(
+            today.getFullYear(),
+            today.getMonth(),
+            today.getDate()
+        );
+        const endOfDay = new Date(
+            today.getFullYear(),
+            today.getMonth(),
+            today.getDate() + 1
+        );
+
+        const indications = await this.indicationTicketRepository.find({
+            where: {
+                indication_type: IndicationType.IMAGING,
+                is_completed: false,
+                indication_date: Between(startOfDay, endOfDay),
+            },
+            relations: [
+                "patient",
+                "doctor",
+                "doctor.user",
+                "serviceItems",
+                "serviceItems.medical_service",
+            ],
+            order: { indication_date: "DESC" },
+        });
+
+        return indications.map((indication) => ({
+            id: indication.id,
+            barcode: indication.barcode,
+            patient: indication.patient && {
+                id: indication.patient.id,
+                patient_full_name: indication.patient.patient_full_name,
+                patient_dob: indication.patient.patient_dob,
+                patient_phone: indication.patient.patient_phone,
+                patient_address: indication.patient.patient_address,
+                patient_gender: indication.patient.patient_gender,
+            },
+            doctor: indication.doctor && {
+                id: indication.doctor.id,
+                user: { full_name: indication.doctor.user?.full_name },
+            },
+            diagnosis: indication.diagnosis,
+            indication_date: indication.indication_date,
+            total_fee: indication.total_fee,
+            serviceItems: (indication.serviceItems || []).map((s) => ({
+                id: s.id,
+                quantity: s.quantity,
+                medical_service: s.medical_service
+                    ? {
+                          id: s.medical_service.id,
+                          name: s.medical_service.service_name,
+                          description: s.medical_service.description,
+                      }
+                    : null,
+            })),
+        }));
     }
 }
